@@ -372,17 +372,15 @@ model HumidityLog {
 
 model EggProduction {
   id        String   @id @default(cuid())
-  batchId   String
+  batchId   String?
   date      DateTime @default(now())
   collected Int      // Number collected
   broken    Int      @default(0)
-  graded1   Int      @default(0) // Size/quality grades
-  graded2   Int      @default(0)
   cracked   Int      @default(0)
   notes     String?
   createdAt DateTime @default(now())
 
-  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batch     Batch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
 
   @@index([batchId])
   @@index([date])
@@ -416,20 +414,19 @@ model FeedStock {
 
 model FeedLog {
   id        String   @id @default(cuid())
-  batchId   String
-  feedTypeId String
-  date      DateTime @default(now())
-  quantity  Decimal  @db.Decimal(10, 2)
-  cost      Decimal? @db.Decimal(10, 2)
+  batchId   String?
+  feedType  String   // e.g., "Layer Mash", "Starter Crumb"
+  recordedDate DateTime @default(now())
+  quantityUsed Decimal @db.Decimal(10, 2)
+  quantityRemaining Decimal? @db.Decimal(10, 2)
+  supplier  String?
   notes     String?
   createdAt DateTime @default(now())
 
-  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  feedType  FeedType @relation(fields: [feedTypeId], references: [id])
+  batch     Batch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
 
   @@index([batchId])
-  @@index([feedTypeId])
-  @@index([date])
+  @@index([recordedDate])
 }
 
 // ============= FARM MANAGEMENT: HEALTH & VACCINATION =============
@@ -444,20 +441,20 @@ enum VaccinationType {
 }
 
 model Vaccination {
-  id        String          @id @default(cuid())
-  batchId   String
-  type      VaccinationType
-  date      DateTime        @default(now())
-  nextDue   DateTime?       // When next vaccination due
-  veterinarian String?
-  batchNo   String?
+  id        String   @id @default(cuid())
+  batchId   String?
+  vaccineType String  // e.g., "Newcastle", "Gumboro"
+  dateAdministered DateTime @default(now())
+  dosage    String?   // e.g., "0.5ml per bird"
+  administeredBy String? // Staff member name
+  batchNo   String?   // Vaccine batch number
   notes     String?
-  createdAt DateTime        @default(now())
+  createdAt DateTime @default(now())
 
-  batch     Batch           @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batch     Batch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
 
   @@index([batchId])
-  @@index([date])
+  @@index([dateAdministered])
 }
 
 model VaccinationSchedule {

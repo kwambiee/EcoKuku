@@ -17,28 +17,20 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
-    const type = searchParams.get('type');
 
     const skip = (page - 1) * limit;
 
-    const where: any = {};
-
-    if (type) {
-      where.type = type;
-    }
-
-    const [products, total] = await Promise.all([
-      db.product.findMany({
-        where,
+    const [logs, total] = await Promise.all([
+      db.feedLog.findMany({
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { recordedDate: 'desc' },
       }),
-      db.product.count({ where }),
+      db.feedLog.count({}),
     ]);
 
     return NextResponse.json({
-      data: products,
+      data: logs,
       pagination: {
         page,
         limit,
@@ -47,9 +39,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Products fetch error:', error);
+    console.error('Feed logs fetch error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch products' },
+      { error: 'Failed to fetch feed logs' },
       { status: 500 },
     );
   }
@@ -68,45 +60,43 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      name,
-      description,
-      price,
-      type,
-      category,
-      stockQuantity,
-      isAvailable,
+      recordedDate,
+      feedType,
+      quantityUsed,
+      quantityRemaining,
+      supplier,
+      notes,
     } = body;
 
-    if (!name || !price || !type) {
+    if (!recordedDate || !feedType || quantityUsed === undefined) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 },
       );
     }
 
-    const product = await db.product.create({
+    const log = await db.feedLog.create({
       data: {
-        name,
-        description,
-        price,
-        type,
-        category,
-        stockQuantity: stockQuantity || 0,
-        isAvailable: isAvailable !== false,
+        recordedDate: new Date(recordedDate),
+        feedType,
+        quantityUsed,
+        quantityRemaining,
+        supplier,
+        notes,
       },
     });
 
     return NextResponse.json(
       {
-        message: 'Product created successfully',
-        product,
+        message: 'Feed log created successfully',
+        log,
       },
       { status: 201 },
     );
   } catch (error) {
-    console.error('Product creation error:', error);
+    console.error('Feed log creation error:', error);
     return NextResponse.json(
-      { error: 'Failed to create product' },
+      { error: 'Failed to create feed log' },
       { status: 500 },
     );
   }
@@ -124,65 +114,28 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { productId, ...updateData } = body;
+    const { feedLogId, ...updateData } = body;
 
-    if (!productId) {
+    if (!feedLogId) {
       return NextResponse.json(
-        { error: 'Product ID is required' },
+        { error: 'Feed log ID is required' },
         { status: 400 },
       );
     }
 
-    const product = await db.product.update({
-      where: { id: productId },
+    const log = await db.feedLog.update({
+      where: { id: feedLogId },
       data: updateData,
     });
 
     return NextResponse.json({
-      message: 'Product updated successfully',
-      product,
+      message: 'Feed log updated successfully',
+      log,
     });
   } catch (error) {
-    console.error('Product update error:', error);
+    console.error('Feed log update error:', error);
     return NextResponse.json(
-      { error: 'Failed to update product' },
-      { status: 500 },
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const session = await getServerSession(adminAuthOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 },
-      );
-    }
-
-    const body = await request.json();
-    const { productId } = body;
-
-    if (!productId) {
-      return NextResponse.json(
-        { error: 'Product ID is required' },
-        { status: 400 },
-      );
-    }
-
-    await db.product.delete({
-      where: { id: productId },
-    });
-
-    return NextResponse.json({
-      message: 'Product deleted successfully',
-    });
-  } catch (error) {
-    console.error('Product deletion error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete product' },
+      { error: 'Failed to update feed log' },
       { status: 500 },
     );
   }

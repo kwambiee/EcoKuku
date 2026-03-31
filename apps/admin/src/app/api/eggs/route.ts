@@ -17,28 +17,33 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
-    const type = searchParams.get('type');
+    const batchId = searchParams.get('batchId');
 
     const skip = (page - 1) * limit;
 
     const where: any = {};
 
-    if (type) {
-      where.type = type;
+    if (batchId) {
+      where.batchId = batchId;
     }
 
-    const [products, total] = await Promise.all([
-      db.product.findMany({
+    const [eggs, total] = await Promise.all([
+      db.eggProduction.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        include: {
+          batch: {
+            select: { id: true, batchNumber: true },
+          },
+        },
+        orderBy: { date: 'desc' },
       }),
-      db.product.count({ where }),
+      db.eggProduction.count({ where }),
     ]);
 
     return NextResponse.json({
-      data: products,
+      data: eggs,
       pagination: {
         page,
         limit,
@@ -47,9 +52,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Products fetch error:', error);
+    console.error('Egg production fetch error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch products' },
+      { error: 'Failed to fetch egg production records' },
       { status: 500 },
     );
   }
@@ -68,45 +73,46 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      name,
-      description,
-      price,
-      type,
-      category,
-      stockQuantity,
-      isAvailable,
+      date,
+      collected,
+      broken,
+      cracked,
+      notes,
     } = body;
 
-    if (!name || !price || !type) {
+    if (!date || collected === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: date, collected' },
         { status: 400 },
       );
     }
 
-    const product = await db.product.create({
+    const egg = await db.eggProduction.create({
       data: {
-        name,
-        description,
-        price,
-        type,
-        category,
-        stockQuantity: stockQuantity || 0,
-        isAvailable: isAvailable !== false,
+        date: new Date(date),
+        collected: parseInt(collected),
+        broken: broken ? parseInt(broken) : 0,
+        cracked: cracked ? parseInt(cracked) : 0,
+        notes,
+      },
+      include: {
+        batch: {
+          select: { id: true, batchNumber: true },
+        },
       },
     });
 
     return NextResponse.json(
       {
-        message: 'Product created successfully',
-        product,
+        message: 'Egg production record created successfully',
+        egg,
       },
       { status: 201 },
     );
   } catch (error) {
-    console.error('Product creation error:', error);
+    console.error('Egg production creation error:', error);
     return NextResponse.json(
-      { error: 'Failed to create product' },
+      { error: 'Failed to create egg production record' },
       { status: 500 },
     );
   }
@@ -124,65 +130,36 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { productId, ...updateData } = body;
+    const { eggProductionId, ...updateData } = body;
 
-    if (!productId) {
+    if (!eggProductionId) {
       return NextResponse.json(
-        { error: 'Product ID is required' },
+        { error: 'Egg production record ID is required' },
         { status: 400 },
       );
     }
 
-    const product = await db.product.update({
-      where: { id: productId },
+    const egg = await db.eggProduction.update({
+      where: { id: eggProductionId },
       data: updateData,
+      include: {
+        batch: {
+          select: { id: true, batchNumber: true },
+        },
+      },
     });
 
-    return NextResponse.json({
-      message: 'Product updated successfully',
-      product,
-    });
-  } catch (error) {
-    console.error('Product update error:', error);
     return NextResponse.json(
-      { error: 'Failed to update product' },
-      { status: 500 },
+      {
+        message: 'Egg production record updated successfully',
+        egg,
+      },
+      { status: 200 },
     );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const session = await getServerSession(adminAuthOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 },
-      );
-    }
-
-    const body = await request.json();
-    const { productId } = body;
-
-    if (!productId) {
-      return NextResponse.json(
-        { error: 'Product ID is required' },
-        { status: 400 },
-      );
-    }
-
-    await db.product.delete({
-      where: { id: productId },
-    });
-
-    return NextResponse.json({
-      message: 'Product deleted successfully',
-    });
   } catch (error) {
-    console.error('Product deletion error:', error);
+    console.error('Egg production update error:', error);
     return NextResponse.json(
-      { error: 'Failed to delete product' },
+      { error: 'Failed to update egg production record' },
       { status: 500 },
     );
   }

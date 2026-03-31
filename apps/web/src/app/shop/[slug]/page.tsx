@@ -1,13 +1,195 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { Button, Badge } from '@ecokuku/ui';
-import { formatCurrency } from '@ecokuku/ui';
-import { useCart } from '@/hooks/useCart';
-import Image from 'next/image';
+import { useState } from 'react';
 import Link from 'next/link';
-import { Star, ShoppingCart } from 'lucide-react';
+import { Button } from '@ecokuku/ui';
+import { Heart, Share2, Star } from 'lucide-react';
+
+export default function ProductDetailPage({ params }: { params: { slug: string } }) {
+  const [quantity, setQuantity] = useState(1);
+  const [inCart, setInCart] = useState(false);
+
+  // Mock product data - replace with API call  const product = {
+    id: '1',
+    name: 'Free Range Eggs (30 pieces)',
+    price: 1200,
+    rating: 4.8,
+    reviews: 124,
+    inStock: true,
+    description: 'Fresh, farm-fresh free-range eggs from our healthy chickens. Rich in nutrients and with vibrant yolks.',
+    details: {
+      category: 'Eggs',
+      origin: 'EcoKuku Farm, Nairobi',
+      production: 'Free Range',
+      storage: 'Refrigerate after purchase',
+    },
+    farmStory: {
+      title: 'Our Farm Story',
+      narrative: 'We raise chickens in open pastures with access to natural sunlight and fresh air. Our hens are fed a premium diet without antibiotics or artificial additives. Each egg is hand-collected and graded for quality.',
+    },
+  };
+
+  const handleAddToCart = () => {
+    console.log(`Added ${quantity} x ${product.name} to cart`);
+    setInCart(true);
+    setTimeout(() => setInCart(false), 2000);
+  };
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Breadcrumb */}
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex gap-2 text-sm text-gray-600">
+          <Link href="/" className="hover:text-gray-900">
+            Home
+          </Link>
+          <span>/</span>
+          <Link href="/shop" className="hover:text-gray-900">
+            Shop
+          </Link>
+          <span>/</span>
+          <span className="text-gray-900">{product.name}</span>
+        </div>
+      </div>
+
+      {/* Product Section */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+          {/* Images */}
+          <div>
+            <div className="bg-gray-100 rounded-lg p-8 mb-4 aspect-square flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-6xl mb-4">🥚</div>
+                <p className="text-gray-600">Product Image</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-gray-100 rounded-lg p-4 aspect-square flex items-center justify-center cursor-pointer hover:bg-gray-200">
+                  <span className="text-2xl">🥚</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Product Info */}
+          <div>
+            <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
+
+            {/* Rating */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    size={16}
+                    className={i < Math.floor(product.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}
+                  />
+                ))}
+              </div>
+              <span className="text-sm text-gray-600">
+                {product.rating} ({product.reviews} reviews)
+              </span>
+            </div>
+
+            {/* Price */}
+            <div className="text-3xl font-bold text-green-600 mb-4">KSh {product.price.toLocaleString()}</div>
+
+            {/* Description */}
+            <p className="text-gray-700 mb-6">{product.description}</p>
+
+            {/* Details */}
+            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <h3 className="font-semibold mb-4">Product Details</h3>
+              <div className="space-y-2 text-sm">
+                {Object.entries(product.details).map(([key, value]) => (
+                  <div key={key} className="flex justify-between">
+                    <span className="text-gray-600 capitalize">{key}:</span>
+                    <span className="font-medium">{value as string}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Quantity & Add to Cart */}
+            <div className="flex gap-4 mb-6">
+              <div className="flex items-center gap-3 border border-gray-300 rounded-lg p-2">
+                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-1 hover:bg-gray-100">
+                  -
+                </button>
+                <span className="w-8 text-center font-semibold">{quantity}</span>
+                <button onClick={() => setQuantity(quantity + 1)} className="px-3 py-1 hover:bg-gray-100">
+                  +
+                </button>
+              </div>
+
+              <Button
+                onClick={handleAddToCart}
+                className="flex-1 bg-green-600 text-white hover:bg-green-700 text-lg py-3"
+              >
+                {inCart ? '✓ Added to Cart' : 'Add to Cart'}
+              </Button>
+            </div>
+
+            {/* Share */}
+            <div className="flex gap-4">
+              <button className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+                <Heart size={20} /> Wishlist
+              </button>
+              <button className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+                <Share2 size={20} /> Share
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Farm Story */}
+        <div className="border-t pt-12 mb-16">
+          <h2 className="text-2xl font-bold mb-6">{product.farmStory.title}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-gray-100 rounded-lg p-8 aspect-video flex items-center justify-center">
+              <p className="text-gray-600 text-center">Farm Image Placeholder</p>
+            </div>
+            <div>
+              <p className="text-gray-700 leading-relaxed mb-4">{product.farmStory.narrative}</p>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li>✓ No antibiotics or artificial additives</li>
+                <li>✓ Open pasture farming</li>
+                <li>✓ Hand-collected and graded</li>
+                <li>✓ Sustainable farming practices</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="border-t pt-12">
+          <h2 className="text-2xl font-bold mb-8">Customer Reviews</h2>
+          <div className="space-y-6">
+            {[
+              { name: 'Samuel Kipchoge', rating: 5, text: 'Excellent eggs! Fresh and delicious. Will order again.' },
+              { name: 'Grace Mwangi', rating: 5, text: 'Amazing quality. My family loves them!' },
+            ].map((review, i) => (
+              <div key={i} className="border-b pb-6 last:border-b-0">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="font-semibold">{review.name}</p>
+                    <div className="flex gap-1">
+                      {[...Array(review.rating)].map((_, j) => (
+                        <Star key={j} size={14} className="fill-yellow-400 text-yellow-400" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-gray-700">{review.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface Product {
   id: string;

@@ -17,28 +17,33 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
-    const type = searchParams.get('type');
+    const batchId = searchParams.get('batchId');
 
     const skip = (page - 1) * limit;
 
     const where: any = {};
 
-    if (type) {
-      where.type = type;
+    if (batchId) {
+      where.batchId = batchId;
     }
 
-    const [products, total] = await Promise.all([
-      db.product.findMany({
+    const [logs, total] = await Promise.all([
+      db.mortalityLog.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        include: {
+          batch: {
+            select: { id: true, batchNumber: true },
+          },
+        },
+        orderBy: { date: 'desc' },
       }),
-      db.product.count({ where }),
+      db.mortalityLog.count({ where }),
     ]);
 
     return NextResponse.json({
-      data: products,
+      data: logs,
       pagination: {
         page,
         limit,
@@ -47,9 +52,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Products fetch error:', error);
+    console.error('Mortality logs fetch error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch products' },
+      { error: 'Failed to fetch mortality logs' },
       { status: 500 },
     );
   }
@@ -68,45 +73,46 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      name,
-      description,
-      price,
-      type,
-      category,
-      stockQuantity,
-      isAvailable,
+      batchId,
+      date,
+      count,
+      cause,
+      notes,
     } = body;
 
-    if (!name || !price || !type) {
+    if (!batchId || !date || count === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: batchId, date, count' },
         { status: 400 },
       );
     }
 
-    const product = await db.product.create({
+    const log = await db.mortalityLog.create({
       data: {
-        name,
-        description,
-        price,
-        type,
-        category,
-        stockQuantity: stockQuantity || 0,
-        isAvailable: isAvailable !== false,
+        batchId,
+        date: new Date(date),
+        count: parseInt(count),
+        cause,
+        notes,
+      },
+      include: {
+        batch: {
+          select: { id: true, batchNumber: true },
+        },
       },
     });
 
     return NextResponse.json(
       {
-        message: 'Product created successfully',
-        product,
+        message: 'Mortality log created successfully',
+        log,
       },
       { status: 201 },
     );
   } catch (error) {
-    console.error('Product creation error:', error);
+    console.error('Mortality log creation error:', error);
     return NextResponse.json(
-      { error: 'Failed to create product' },
+      { error: 'Failed to create mortality log' },
       { status: 500 },
     );
   }
@@ -124,65 +130,33 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { productId, ...updateData } = body;
+    const { mortalityLogId, ...updateData } = body;
 
-    if (!productId) {
+    if (!mortalityLogId) {
       return NextResponse.json(
-        { error: 'Product ID is required' },
+        { error: 'Mortality log ID is required' },
         { status: 400 },
       );
     }
 
-    const product = await db.product.update({
-      where: { id: productId },
+    const log = await db.mortalityLog.update({
+      where: { id: mortalityLogId },
       data: updateData,
+      include: {
+        batch: {
+          select: { id: true, batchNumber: true },
+        },
+      },
     });
 
     return NextResponse.json({
-      message: 'Product updated successfully',
-      product,
+      message: 'Mortality log updated successfully',
+      log,
     });
   } catch (error) {
-    console.error('Product update error:', error);
+    console.error('Mortality log update error:', error);
     return NextResponse.json(
-      { error: 'Failed to update product' },
-      { status: 500 },
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const session = await getServerSession(adminAuthOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 },
-      );
-    }
-
-    const body = await request.json();
-    const { productId } = body;
-
-    if (!productId) {
-      return NextResponse.json(
-        { error: 'Product ID is required' },
-        { status: 400 },
-      );
-    }
-
-    await db.product.delete({
-      where: { id: productId },
-    });
-
-    return NextResponse.json({
-      message: 'Product deleted successfully',
-    });
-  } catch (error) {
-    console.error('Product deletion error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete product' },
+      { error: 'Failed to update mortality log' },
       { status: 500 },
     );
   }

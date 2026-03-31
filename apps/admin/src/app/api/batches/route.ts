@@ -86,7 +86,8 @@ export async function POST(request: NextRequest) {
       data: {
         batchNumber,
         type,
-        quantity,
+        quantity: parseInt(quantity),
+        currentCount: parseInt(quantity),
         startDate: new Date(startDate),
         status: 'ACTIVE',
         notes,
@@ -130,9 +131,17 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Convert expectedReady to DateTime if provided
+    const data: any = { ...updateData };
+    if (data.expectedReady && data.expectedReady.trim()) {
+      data.expectedReady = new Date(data.expectedReady);
+    } else if (data.expectedReady === '') {
+      data.expectedReady = null;
+    }
+
     const batch = await db.batch.update({
       where: { id: batchId },
-      data: updateData,
+      data,
     });
 
     return NextResponse.json({
@@ -143,6 +152,43 @@ export async function PATCH(request: NextRequest) {
     console.error('Batch update error:', error);
     return NextResponse.json(
       { error: 'Failed to update batch' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(adminAuthOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
+
+    const body = await request.json();
+    const { batchId } = body;
+
+    if (!batchId) {
+      return NextResponse.json(
+        { error: 'Batch ID is required' },
+        { status: 400 },
+      );
+    }
+
+    await db.batch.delete({
+      where: { id: batchId },
+    });
+
+    return NextResponse.json({
+      message: 'Batch deleted successfully',
+    });
+  } catch (error) {
+    console.error('Batch deletion error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete batch' },
       { status: 500 },
     );
   }

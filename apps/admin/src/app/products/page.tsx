@@ -175,7 +175,7 @@ export default function ProductsPage() {
               <Button type="submit">Create Product</Button>
               <Button
                 type="button"
-                variant="outline"
+                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
                 onClick={() => setShowForm(false)}
               >
                 Cancel
@@ -205,8 +205,8 @@ export default function ProductsPage() {
                     <h3 className="font-bold text-gray-900 text-lg">{product.name}</h3>
                     <p className="text-sm text-gray-600 mt-1">{product.description}</p>
                     <div className="flex gap-2 mt-2">
-                      <Badge variant="secondary">{product.type}</Badge>
-                      <Badge variant="secondary">{product.category}</Badge>
+                      <Badge className="bg-gray-100 text-gray-800">{product.type}</Badge>
+                      <Badge className="bg-gray-100 text-gray-800">{product.category}</Badge>
                     </div>
                   </div>
                   <div className="text-right">

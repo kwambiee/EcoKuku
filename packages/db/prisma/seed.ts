@@ -1,9 +1,5 @@
-import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-
-// Load environment variables from .env file
-dotenv.config();
 
 const prisma = new PrismaClient();
 
@@ -358,7 +354,7 @@ async function main() {
         date: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
         collected: 3700 + Math.floor(Math.random() * 150),
         broken: Math.floor(Math.random() * 20),
-        graded1: Math.floor(Math.random() * 100),
+        cracked: Math.floor(Math.random() * 15),
       },
     });
   }
@@ -394,10 +390,10 @@ async function main() {
   await prisma.feedLog.create({
     data: {
       batchId: batch1.id,
-      feedTypeId: layerMash.id,
-      date: new Date(),
-      quantity: 250,
-      cost: 8750,
+      feedType: 'Layer Mash',
+      recordedDate: new Date(),
+      quantityUsed: 250,
+      supplier: 'Local Supply Co',
     },
   });
 
