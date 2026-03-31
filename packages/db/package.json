@@ -1,0 +1,31 @@
+{
+  "name": "@ecokuku/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prisma database schema and client for EcoKuku",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+     "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:seed": "node --require dotenv/config prisma/seed.ts",
+    "build": "tsc"
+  },
+  "prisma": {
+    "seed": "node --require dotenv/config prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.4.0",
+    "prisma": "^5.3.1",
+    "typescript": "^5.2.0"
+  }
+}

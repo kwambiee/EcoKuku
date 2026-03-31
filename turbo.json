@@ -1,0 +1,29 @@
+{
+  "extends": ["//"],
+  "globalDependencies": [".env", ".env.local"],
+  "pipeline": {
+    "db:push": {
+      "cache": false
+    },
+    "db:studio": {
+      "cache": false
+    },
+    "db:seed": {
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "outputs": ["dist/**", ".next/**"],
+      "dependsOn": ["^build"]
+    },
+    "lint": {
+      "outputs": []
+    },
+    "type-check": {
+      "outputs": []
+    }
+  }
+}

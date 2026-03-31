@@ -1,0 +1,290 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);color:var(--color-text-primary)}
+.wrap{padding:1rem 0}
+.area{margin-bottom:1.5rem}
+.area-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:var(--border-radius-md);cursor:pointer;user-select:none}
+.area-header:hover{opacity:0.9}
+.area-title{font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px}
+.area-progress{font-size:12px;opacity:0.75}
+.files{padding:8px 0 0 12px}
+.file-row{display:flex;align-items:flex-start;gap:10px;padding:5px 10px;border-radius:6px;transition:background .1s}
+.file-row:hover{background:var(--color-background-secondary)}
+.check{width:16px;height:16px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.done{background:#C0DD97;border:1.5px solid #639922}
+.done svg{width:9px;height:9px;stroke:#27500A;stroke-width:2.5;fill:none}
+.todo{background:var(--color-background-secondary);border:1.5px solid var(--color-border-secondary)}
+.wip{background:#FAEEDA;border:1.5px solid #BA7517}
+.wip-dot{width:6px;height:6px;border-radius:50%;background:#BA7517}
+.file-info{flex:1;min-width:0}
+.file-path{font-size:12px;font-family:var(--font-mono);color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-desc{font-size:11px;color:var(--color-text-secondary);margin-top:1px}
+.legend{display:flex;gap:16px;padding:0 2px 12px;font-size:11px;color:var(--color-text-secondary)}
+.leg-item{display:flex;align-items:center;gap:5px}
+.prog-bar{height:4px;border-radius:2px;background:var(--color-background-secondary);margin-top:6px;overflow:hidden}
+.prog-fill{height:100%;border-radius:2px;background:#639922;transition:width .3s}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.sum-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
+.sum-val{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.sum-lbl{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+</style>
+
+<div class="wrap">
+<div class="summary">
+  <div class="sum-card"><div class="sum-val" id="cnt-done">0</div><div class="sum-lbl">Done</div></div>
+  <div class="sum-card"><div class="sum-val" id="cnt-wip" style="color:#BA7517">0</div><div class="sum-lbl">In progress</div></div>
+  <div class="sum-card"><div class="sum-val" id="cnt-todo" style="color:var(--color-text-tertiary)">0</div><div class="sum-lbl">To do</div></div>
+</div>
+<div class="prog-bar" style="margin-bottom:20px"><div class="prog-fill" id="overall-bar" style="width:0%"></div></div>
+
+<div class="legend">
+  <div class="leg-item"><div class="check done"><svg viewBox="0 0 10 10"><polyline points="2,5 4,7.5 8,3"/></svg></div>Done</div>
+  <div class="leg-item"><div class="check wip"><div class="wip-dot"></div></div>In progress / partial</div>
+  <div class="leg-item"><div class="check todo"></div>To do</div>
+</div>
+
+<div id="areas"></div>
+</div>
+
+<script>
+const data = [
+  {
+    label: "Monorepo & config",
+    color: "#EAF3DE", border: "#3B6D11", text: "#27500A",
+    files: [
+      {s:"done", path:"package.json", desc:"Root workspace config, Turbo scripts"},
+      {s:"done", path:"turbo.json", desc:"Build pipeline: dev, build, lint, db tasks"},
+      {s:"done", path:".gitignore / .prettierrc", desc:"Shared formatting and ignore rules"},
+      {s:"todo", path:".env.example", desc:"All required env vars documented"},
+      {s:"todo", path:"README.md", desc:"Setup guide, dev commands, deployment steps"},
+    ]
+  },
+  {
+    label: "packages/db — Prisma schema & seed",
+    color: "#EAF3DE", border: "#3B6D11", text: "#27500A",
+    files: [
+      {s:"done", path:"prisma/schema.prisma", desc:"All models: User, Batch, Egg, Feed, Order, Product, Vaccination, Delivery…"},
+      {s:"done", path:"src/index.ts", desc:"Prisma client singleton with dev logging"},
+      {s:"done", path:"src/seed.ts", desc:"Realistic seed: batches, products, promos, drivers, users"},
+      {s:"todo", path:"prisma/migrations/", desc:"Initial migration files (run after DB is connected)"},
+    ]
+  },
+  {
+    label: "packages/ui — shared components",
+    color: "#EAF3DE", border: "#3B6D11", text: "#27500A",
+    files: [
+      {s:"done", path:"src/components/index.tsx", desc:"Badge, StatusPill, MetricCard"},
+      {s:"todo", path:"src/components/data-table.tsx", desc:"Reusable sortable table used in both apps"},
+      {s:"todo", path:"src/components/confirm-dialog.tsx", desc:"Confirmation modal (delete batch, cancel order)"},
+    ]
+  },
+  {
+    label: "apps/web — customer site",
+    color: "#EAF3DE", border: "#3B6D11", text: "#27500A",
+    files: [
+      {s:"done", path:"src/app/layout.tsx", desc:"Root layout with fonts, metadata, Providers"},
+      {s:"done", path:"src/app/globals.css", desc:"Tailwind base + component classes (btn, card, input)"},
+      {s:"done", path:"src/app/page.tsx", desc:"Homepage: hero, why-us, featured products, referral CTA"},
+      {s:"done", path:"src/app/shop/page.tsx", desc:"Shop with category filter tabs, product grid, SSR"},
+      {s:"wip",  path:"src/app/shop/[slug]/page.tsx", desc:"Product detail: images, farm story, add to cart, pre-order"},
+      {s:"done", path:"src/app/checkout/page.tsx", desc:"Full checkout: cart summary, promo, delivery, M-PESA STK"},
+      {s:"todo", path:"src/app/cart/page.tsx", desc:"Cart page: line items, qty editor, promo, proceed"},
+      {s:"done", path:"src/app/journey/page.tsx", desc:"Farm transparency timeline — all 7 stages"},
+      {s:"todo", path:"src/app/about/page.tsx", desc:"About, sustainability, farm map embed"},
+      {s:"todo", path:"src/app/orders/page.tsx", desc:"Customer order history list"},
+      {s:"todo", path:"src/app/orders/[id]/page.tsx", desc:"Order detail + live tracking status"},
+      {s:"todo", path:"src/app/auth/login/page.tsx", desc:"Login form with NextAuth credentials"},
+      {s:"todo", path:"src/app/auth/register/page.tsx", desc:"Registration: name, email, phone, password"},
+      {s:"todo", path:"src/app/referral/page.tsx", desc:"Referral code display, share link, rewards"},
+    ]
+  },
+  {
+    label: "apps/web — components",
+    color: "#EAF3DE", border: "#3B6D11", text: "#27500A",
+    files: [
+      {s:"done", path:"src/components/navbar.tsx", desc:"Sticky navbar with cart count badge, mobile menu"},
+      {s:"done", path:"src/components/footer.tsx", desc:"4-column footer with links and contact"},
+      {s:"done", path:"src/components/product-card.tsx", desc:"Card with add-to-cart, pre-order, wholesale badge"},
+      {s:"todo", path:"src/components/cart-drawer.tsx", desc:"Slide-out cart drawer (mobile-first)"},
+      {s:"todo", path:"src/components/order-tracker.tsx", desc:"Status stepper: Processing→Packed→Delivery→Done"},
+      {s:"todo", path:"src/components/review-form.tsx", desc:"Star rating + comment form"},
+      {s:"todo", path:"src/components/chatbot.tsx", desc:"Floating FAQ chatbot (rule-based, Claude API optional)"},
+    ]
+  },
+  {
+    label: "apps/web — API routes",
+    color: "#EAF3DE", border: "#3B6D11", text: "#27500A",
+    files: [
+      {s:"done", path:"api/auth/[...nextauth]/route.ts", desc:"NextAuth with credentials provider + JWT"},
+      {s:"done", path:"api/products/route.ts", desc:"GET /api/products with category & availability filter"},
+      {s:"done", path:"api/orders/route.ts", desc:"POST: create order, verify prices, initiate STK Push"},
+      {s:"done", path:"api/orders/[id]/route.ts", desc:"GET: order status (used for payment polling)"},
+      {s:"done", path:"api/mpesa/callback/route.ts", desc:"POST: Safaricom callback → mark order paid"},
+      {s:"done", path:"api/promo/route.ts", desc:"POST: validate promo code, return discount"},
+      {s:"todo", path:"api/auth/register/route.ts", desc:"POST: create customer account"},
+      {s:"todo", path:"api/reviews/route.ts", desc:"POST: submit review; GET: reviews by product"},
+      {s:"todo", path:"api/orders/[id]/track/route.ts", desc:"GET: detailed tracking with delivery steps"},
+    ]
+  },
+  {
+    label: "apps/web — lib / utilities",
+    color: "#EAF3DE", border: "#3B6D11", text: "#27500A",
+    files: [
+      {s:"done", path:"src/lib/cart-store.ts", desc:"Zustand cart with persist middleware"},
+      {s:"done", path:"src/lib/mpesa.ts", desc:"Daraja: OAuth token cache, STK Push, callback parser"},
+      {s:"done", path:"src/lib/auth.ts", desc:"NextAuth config with role in JWT session"},
+      {s:"todo", path:"src/lib/delivery-fee.ts", desc:"Area-based delivery fee lookup table"},
+      {s:"todo", path:"src/lib/sms.ts", desc:"Africa's Talking SMS for order confirmations"},
+    ]
+  },
+  {
+    label: "apps/admin — layout & shell",
+    color: "#FAEEDA", border: "#BA7517", text: "#633806",
+    files: [
+      {s:"wip",  path:"src/app/layout.tsx", desc:"Admin root layout with auth guard (redirect if not ADMIN/STAFF)"},
+      {s:"wip",  path:"src/app/globals.css", desc:"Admin Tailwind base (same palette, admin-specific utilities)"},
+      {s:"todo", path:"src/components/sidebar.tsx", desc:"Collapsible sidebar with all 12 nav links + active state"},
+      {s:"todo", path:"src/components/topbar.tsx", desc:"Search, notifications bell, user avatar dropdown"},
+      {s:"todo", path:"src/components/admin-providers.tsx", desc:"React Query + session provider for admin"},
+    ]
+  },
+  {
+    label: "apps/admin — dashboard",
+    color: "#FAEEDA", border: "#BA7517", text: "#633806",
+    files: [
+      {s:"todo", path:"src/app/dashboard/page.tsx", desc:"6 metric cards + egg production bar chart + batch donut"},
+      {s:"todo", path:"src/app/dashboard/egg-chart.tsx", desc:"Recharts AreaChart — 7-day egg collection trend"},
+      {s:"todo", path:"src/app/dashboard/recent-orders.tsx", desc:"Last 10 orders table with status pills"},
+      {s:"todo", path:"src/app/dashboard/batch-summary.tsx", desc:"Active batch cards with progress bars"},
+    ]
+  },
+  {
+    label: "apps/admin — batch management",
+    color: "#FAEEDA", border: "#BA7517", text: "#633806",
+    files: [
+      {s:"todo", path:"src/app/batches/page.tsx", desc:"Batch grid cards (type, age, count, progress to market)"},
+      {s:"todo", path:"src/app/batches/new/page.tsx", desc:"Create batch form: type, start date, quantity"},
+      {s:"todo", path:"src/app/batches/[id]/page.tsx", desc:"Batch detail: growth chart, mortality log, feed, health"},
+      {s:"todo", path:"src/app/batches/[id]/mortality/route.ts", desc:"POST: log mortality entry"},
+      {s:"todo", path:"src/app/batches/[id]/growth/route.ts", desc:"POST: log weekly weight measurement"},
+      {s:"todo", path:"src/app/incubation/page.tsx", desc:"Incubation batch table + temp/humidity logs"},
+      {s:"todo", path:"src/app/incubation/[id]/page.tsx", desc:"Incubation detail with hatch rate tracker"},
+    ]
+  },
+  {
+    label: "apps/admin — egg production",
+    color: "#FAEEDA", border: "#BA7517", text: "#633806",
+    files: [
+      {s:"todo", path:"src/app/eggs/page.tsx", desc:"Daily log form + production table + 4 metric cards"},
+      {s:"todo", path:"src/app/eggs/reports/page.tsx", desc:"Weekly/monthly charts, defect rate trends"},
+      {s:"todo", path:"src/app/api/eggs/route.ts", desc:"POST: create egg log; GET: paginated log history"},
+    ]
+  },
+  {
+    label: "apps/admin — feed management",
+    color: "#FAEEDA", border: "#BA7517", text: "#633806",
+    files: [
+      {s:"todo", path:"src/app/feed/page.tsx", desc:"Stock level cards, low-stock alerts, consumption log"},
+      {s:"todo", path:"src/app/feed/stock/page.tsx", desc:"Manage feed stock entries (purchase, adjust)"},
+      {s:"todo", path:"src/app/api/feed/route.ts", desc:"POST: log feed usage; GET: stock levels"},
+    ]
+  },
+  {
+    label: "apps/admin — health & vaccines",
+    color: "#FAEEDA", border: "#BA7517", text: "#633806",
+    files: [
+      {s:"todo", path:"src/app/health/page.tsx", desc:"Vaccination calendar + schedule table with urgent alerts"},
+      {s:"todo", path:"src/app/health/events/page.tsx", desc:"Disease log, vet visit notes, treatment records"},
+      {s:"todo", path:"src/app/api/health/vaccinations/route.ts", desc:"GET vaccinations; PATCH: mark completed"},
+      {s:"todo", path:"src/app/api/health/events/route.ts", desc:"POST health event (disease, vet visit)"},
+    ]
+  },
+  {
+    label: "apps/admin — orders & sales",
+    color: "#FAEEDA", border: "#BA7517", text: "#633806",
+    files: [
+      {s:"todo", path:"src/app/orders/page.tsx", desc:"All orders table: filter by type, status, date range"},
+      {s:"todo", path:"src/app/orders/[id]/page.tsx", desc:"Order detail: items, customer, payment, assign driver"},
+      {s:"todo", path:"src/app/api/admin/orders/route.ts", desc:"GET all orders (admin); PATCH: update status"},
+      {s:"todo", path:"src/app/api/admin/orders/[id]/route.ts", desc:"PATCH order status/driver assignment"},
+    ]
+  },
+  {
+    label: "apps/admin — logistics & customers",
+    color: "#FAEEDA", border: "#BA7517", text: "#633806",
+    files: [
+      {s:"todo", path:"src/app/logistics/page.tsx", desc:"Delivery calendar, driver list, active deliveries"},
+      {s:"todo", path:"src/app/logistics/drivers/page.tsx", desc:"Driver management: add, activate, view history"},
+      {s:"todo", path:"src/app/customers/page.tsx", desc:"Customer list with order count and total spend"},
+      {s:"todo", path:"src/app/customers/[id]/page.tsx", desc:"Customer profile: orders, referrals, addresses"},
+    ]
+  },
+  {
+    label: "apps/admin — reports & analytics",
+    color: "#FAEEDA", border: "#BA7517", text: "#633806",
+    files: [
+      {s:"todo", path:"src/app/reports/page.tsx", desc:"Sales revenue chart, production efficiency, margin table"},
+      {s:"todo", path:"src/app/reports/production/page.tsx", desc:"Egg yield per batch, mortality rates, FCR"},
+      {s:"todo", path:"src/app/api/admin/reports/route.ts", desc:"Aggregated stats: revenue, units sold, top products"},
+    ]
+  },
+];
+
+function renderAreas() {
+  const container = document.getElementById('areas');
+  let totalDone=0, totalWip=0, totalTodo=0;
+  
+  data.forEach((area, ai) => {
+    const done = area.files.filter(f=>f.s==='done').length;
+    const wip = area.files.filter(f=>f.s==='wip').length;
+    const total = area.files.length;
+    totalDone += done; totalWip += wip; totalTodo += (total-done-wip);
+    const pct = Math.round(((done + wip*0.5)/total)*100);
+    
+    const div = document.createElement('div');
+    div.className='area';
+    div.innerHTML = `
+      <div class="area-header" style="background:${area.color};border:0.5px solid ${area.border}" onclick="toggle(${ai})">
+        <div class="area-title" style="color:${area.text}">
+          <svg width="12" height="12" viewBox="0 0 12 12" id="chevron-${ai}" style="transition:transform .2s;flex-shrink:0"><path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="${area.text}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          ${area.label}
+        </div>
+        <div class="area-progress" style="color:${area.text}">${done}/${total} done</div>
+      </div>
+      <div class="prog-bar" style="margin:4px 0 0"><div class="prog-fill" style="width:${pct}%;background:${area.border}"></div></div>
+      <div class="files" id="files-${ai}">
+        ${area.files.map(f=>`
+          <div class="file-row">
+            <div class="check ${f.s}">
+              ${f.s==='done'?'<svg viewBox="0 0 10 10"><polyline points="2,5 4,7.5 8,3"/></svg>':f.s==='wip'?'<div class="wip-dot"></div>':''}
+            </div>
+            <div class="file-info">
+              <div class="file-path">${f.path}</div>
+              <div class="file-desc">${f.desc}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    container.appendChild(div);
+  });
+  
+  const grandTotal = totalDone+totalWip+totalTodo;
+  document.getElementById('cnt-done').textContent = totalDone;
+  document.getElementById('cnt-wip').textContent = totalWip;
+  document.getElementById('cnt-todo').textContent = totalTodo;
+  const overallPct = Math.round(((totalDone+totalWip*0.5)/grandTotal)*100);
+  document.getElementById('overall-bar').style.width = overallPct+'%';
+}
+
+function toggle(ai) {
+  const el = document.getElementById('files-'+ai);
+  const ch = document.getElementById('chevron-'+ai);
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  ch.style.transform = open ? 'rotate(-90deg)' : '';
+}
+
+renderAreas();
+</script>

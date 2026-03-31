@@ -1,0 +1,504 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============= AUTHENTICATION & USERS =============
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  STAFF
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?   @unique
+  name          String
+  password      String // Hash passwords in reality
+  role          UserRole  @default(CUSTOMER)
+  avatar        String?
+  referralCode  String?   @unique
+  referredby    String?   // ID of user who referred this user
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  addresses     Address[]
+  orders        Order[]
+  reviews       Review[]
+
+  @@index([email])
+  @@index([phone])
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  area      String   // Nairobi area for delivery fee lookup
+  street    String
+  landmark  String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============= PRODUCTS & INVENTORY =============
+
+enum ProductType {
+  EGGS_TRAY     // 30 eggs per tray
+  EGGS_CRATE    // 360 eggs per crate
+  CHICKEN_LIVE  // Live whole chicken
+  CHICKEN_DRESSED // Processed/butchered chicken
+  CHICK         // Day-old chick
+}
+
+enum ProductCategory {
+  EGGS
+  LIVE_POULTRY
+  DRESSED_MEAT
+  CHICKS
+}
+
+model Product {
+  id          String          @id @default(cuid())
+  sku         String          @unique
+  name        String
+  description String
+  type        ProductType
+  category    ProductCategory
+  price       Decimal         @db.Decimal(10, 2)
+  wholesalePrice Decimal?     @db.Decimal(10, 2)
+  image       String?
+  available   Boolean         @default(true)
+  stock       Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  orderItems  OrderItem[]
+  reviews     Review[]
+
+  @@index([category])
+  @@index([available])
+}
+
+// ============= ORDERS & SALES =============
+
+enum OrderType {
+  RETAIL
+  WHOLESALE
+  PREORDER
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  PACKED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  FAILED
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  orderNumber       String      @unique
+  customerId        String
+  orderType         OrderType   @default(RETAIL)
+  status            OrderStatus @default(PENDING)
+  subtotal          Decimal     @db.Decimal(10, 2)
+  deliveryFee       Decimal     @db.Decimal(10, 2)
+  promoId           String?
+  discountAmount    Decimal     @default(0) @db.Decimal(10, 2)
+  total             Decimal     @db.Decimal(10, 2)
+  paymentMethod     String      @default("MPESA")
+  paymentRef        String?     // M-PESA transaction ref
+  deliveryArea      String?
+  deliveryDate      DateTime?
+  deliveryAddress   String?
+  notes             String?
+  driverId          String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  customer          User        @relation(fields: [customerId], references: [id])
+  items             OrderItem[]
+  promo             Promo?      @relation(fields: [promoId], references: [id])
+  delivery          Delivery?
+  driver            Driver?     @relation(fields: [driverId], references: [id])
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ============= PROMOTIONS =============
+
+model Promo {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String?
+  discountType String  @default("PERCENTAGE") // PERCENTAGE or FIXED
+  discountValue Decimal @db.Decimal(10, 2)
+  maxUses    Int?
+  uses       Int      @default(0)
+  maxPerUser Int      @default(1)
+  active      Boolean  @default(true)
+  startDate   DateTime
+  endDate     DateTime
+  createdAt   DateTime @default(now())
+
+  orders      Order[]
+
+  @@index([code])
+  @@index([active])
+}
+
+// ============= REVIEWS & RATINGS =============
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  customerId String
+  rating    Int      @db.SmallInt // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer  User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, customerId])
+  @@index([productId])
+  @@index([customerId])
+}
+
+// ============= LOGISTICS & DELIVERY =============
+
+enum DeliveryStatus {
+  SCHEDULED
+  PROCESSING
+  PACKED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
+model Driver {
+  id        String  @id @default(cuid())
+  name      String
+  phone     String  @unique
+  vehicle   String
+  plate     String
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveries Delivery[]
+  orders     Order[]
+
+  @@index([active])
+}
+
+model Delivery {
+  id            String          @id @default(cuid())
+  orderId       String          @unique
+  driverId      String?
+  status        DeliveryStatus  @default(SCHEDULED)
+  scheduledDate DateTime
+  actualDate    DateTime?
+  location      String?
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driver        Driver?         @relation(fields: [driverId], references: [id])
+
+  @@index([orderId])
+  @@index([status])
+}
+
+// ============= FARM MANAGEMENT: BATCHES =============
+
+enum BatchType {
+  BROILER        // Meat chickens
+  LAYER          // Egg-laying chickens
+  KIENYEJI       // Traditional breed
+}
+
+enum BatchStatus {
+  ACTIVE
+  RESTING
+  SOLD_OUT
+  CULLED
+}
+
+model Batch {
+  id            String      @id @default(cuid())
+  batchNumber   String      @unique
+  type          BatchType
+  status        BatchStatus @default(ACTIVE)
+  startDate     DateTime
+  expectedReady DateTime?   // Expected market-ready date
+  quantity      Int         // Number of chicks started
+  currentCount  Int         // Current count (after mortality)
+  breed         String?
+  source        String?     // Origin of chicks
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  mortalityLogs MortalityLog[]
+  growthLogs    GrowthLog[]
+  vaccinations  Vaccination[]
+  healthEvents  HealthEvent[]
+  eggProduction EggProduction[]
+  feedLogs      FeedLog[]
+
+  @@index([type])
+  @@index([status])
+  @@index([startDate])
+}
+
+model MortalityLog {
+  id        String   @id @default(cuid())
+  batchId   String
+  date      DateTime @default(now())
+  count     Int      // Number died
+  cause     String?  // Disease, predation, etc.
+  notes     String?
+  createdAt DateTime @default(now())
+
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([date])
+}
+
+model GrowthLog {
+  id        String   @id @default(cuid())
+  batchId   String
+  date      DateTime @default(now())
+  avgWeight Decimal? @db.Decimal(10, 2) // kg
+  notes     String?
+  createdAt DateTime @default(now())
+
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([date])
+}
+
+// ============= FARM MANAGEMENT: INCUBATION =============
+
+model IncubationBatch {
+  id                String    @id @default(cuid())
+  batchNumber       String    @unique
+  eggCount          Int       // Total eggs loaded
+  startDate         DateTime
+  expectedHatchDate DateTime
+  hatchedCount      Int       @default(0)
+  failedCount       Int       @default(0)
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  tempLogs          TemperatureLog[]
+  humidityLogs      HumidityLog[]
+
+  @@index([startDate])
+  @@index([expectedHatchDate])
+}
+
+model TemperatureLog {
+  id                  String   @id @default(cuid())
+  incubationBatchId   String
+  timestamp           DateTime @default(now())
+  temperature         Decimal  @db.Decimal(5, 2) // Celsius
+  notes               String?
+
+  incubationBatch     IncubationBatch @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+
+  @@index([incubationBatchId])
+  @@index([timestamp])
+}
+
+model HumidityLog {
+  id                  String   @id @default(cuid())
+  incubationBatchId   String
+  timestamp           DateTime @default(now())
+  humidity            Decimal  @db.Decimal(5, 2) // Percentage
+  notes               String?
+
+  incubationBatch     IncubationBatch @relation(fields: [incubationBatchId], references: [id], onDelete: Cascade)
+
+  @@index([incubationBatchId])
+  @@index([timestamp])
+}
+
+// ============= FARM MANAGEMENT: EGG PRODUCTION =============
+
+model EggProduction {
+  id        String   @id @default(cuid())
+  batchId   String
+  date      DateTime @default(now())
+  collected Int      // Number collected
+  broken    Int      @default(0)
+  graded1   Int      @default(0) // Size/quality grades
+  graded2   Int      @default(0)
+  cracked   Int      @default(0)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([date])
+}
+
+// ============= FARM MANAGEMENT: FEED =============
+
+model FeedType {
+  id        String   @id @default(cuid())
+  name      String   // e.g., "Starter Feed", "Layer Mash"
+  supplier  String?
+  cost      Decimal? @db.Decimal(10, 2) // per bag/unit
+  notes     String?
+  createdAt DateTime @default(now())
+
+  stock     FeedStock[]
+  logs      FeedLog[]
+}
+
+model FeedStock {
+  id          String   @id @default(cuid())
+  feedTypeId  String
+  quantity    Decimal  @db.Decimal(10, 2) // kg or bags
+  unit        String   @default("kg") // kg, bags, etc.
+  lastUpdated DateTime @default(now())
+
+  feedType    FeedType @relation(fields: [feedTypeId], references: [id], onDelete: Cascade)
+
+  @@index([feedTypeId])
+}
+
+model FeedLog {
+  id        String   @id @default(cuid())
+  batchId   String
+  feedTypeId String
+  date      DateTime @default(now())
+  quantity  Decimal  @db.Decimal(10, 2)
+  cost      Decimal? @db.Decimal(10, 2)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  feedType  FeedType @relation(fields: [feedTypeId], references: [id])
+
+  @@index([batchId])
+  @@index([feedTypeId])
+  @@index([date])
+}
+
+// ============= FARM MANAGEMENT: HEALTH & VACCINATION =============
+
+enum VaccinationType {
+  NEWCASTLE
+  GUMBORO
+  FOWLPOX
+  MAREK
+  COCCIDIOSIS
+  OTHER
+}
+
+model Vaccination {
+  id        String          @id @default(cuid())
+  batchId   String
+  type      VaccinationType
+  date      DateTime        @default(now())
+  nextDue   DateTime?       // When next vaccination due
+  veterinarian String?
+  batchNo   String?
+  notes     String?
+  createdAt DateTime        @default(now())
+
+  batch     Batch           @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([date])
+}
+
+model VaccinationSchedule {
+  id            String          @id @default(cuid())
+  batchId       String?         // Null = general schedule template
+  type          VaccinationType
+  daysOld       Int             // When to vaccinate (days of age)
+  completed     Boolean         @default(false)
+  completedDate DateTime?
+  notes         String?
+  createdAt     DateTime        @default(now())
+
+  @@index([daysOld])
+}
+
+model HealthEvent {
+  id        String   @id @default(cuid())
+  batchId   String
+  type      String   // "disease", "injury", "treatment", "vet_visit"
+  date      DateTime @default(now())
+  disease   String?
+  symptoms  String?
+  treatment String?
+  vetName   String?
+  cost      Decimal? @db.Decimal(10, 2)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([date])
+}
+
+// ============= SETTINGS & CONFIGURATION =============
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  type  String @default("string") // string, number, boolean, json
+
+  @@index([key])
+}
