@@ -95,10 +95,30 @@ export async function POST(request: NextRequest) {
       },
       include: {
         batch: {
-          select: { id: true, batchNumber: true },
+          select: { id: true, batchNumber: true, startDate: true },
         },
       },
     });
+
+    // Notify customers with active batch orders for this batch
+    const activeBatchOrders = await db.batchOrder.findMany({
+      where: { batchId, status: { in: ['CONFIRMED', 'GROWING'] } },
+      select: { id: true },
+    });
+
+    if (activeBatchOrders.length > 0) {
+      const ageInDays = Math.floor(
+        (new Date().getTime() - new Date(log.batch.startDate).getTime()) / (1000 * 60 * 60 * 24),
+      );
+      await db.batchOrderUpdate.createMany({
+        data: activeBatchOrders.map((bo) => ({
+          batchOrderId: bo.id,
+          title: `Growth update: ${avgWeight} kg average`,
+          message: `Your chicks are now averaging ${avgWeight} kg at ${ageInDays} days old.`,
+          type: 'UPDATE',
+        })),
+      });
+    }
 
     return NextResponse.json(
       {

@@ -9,16 +9,17 @@ import { Eye, Edit2 } from 'lucide-react';
 
 interface Order {
   id: string;
-  user: {
+  orderNumber: string;
+  customer: {
     name: string;
     email: string;
     phone: string;
   };
-  totalPrice: number;
+  total: number;
   status: string;
   createdAt: string;
   deliveryDate: string;
-  deliveryCity: string;
+  deliveryArea: string;
 }
 
 export default function OrdersPage() {
@@ -61,11 +62,15 @@ export default function OrdersPage() {
     switch (status) {
       case 'DELIVERED':
         return 'bg-green-100 text-green-800';
-      case 'PENDING_PAYMENT':
+      case 'PENDING':
         return 'bg-yellow-100 text-yellow-800';
+      case 'PAID':
+        return 'bg-cyan-100 text-cyan-800';
       case 'PROCESSING':
         return 'bg-blue-100 text-blue-800';
-      case 'IN_TRANSIT':
+      case 'PACKED':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'OUT_FOR_DELIVERY':
         return 'bg-purple-100 text-purple-800';
       case 'CANCELLED':
         return 'bg-red-100 text-red-800';
@@ -98,7 +103,7 @@ export default function OrdersPage() {
         >
           All
         </button>
-        {['PENDING_PAYMENT', 'PROCESSING', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED'].map(
+        {['PENDING', 'PAID', 'PROCESSING', 'PACKED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'].map(
           (status) => (
             <button
               key={status}
@@ -155,23 +160,23 @@ export default function OrdersPage() {
                 {orders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 font-semibold text-gray-900">
-                      {order.id.substring(0, 8)}...
+                      {order.orderNumber}
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-medium text-gray-900">{order.user.name}</p>
-                        <p className="text-sm text-gray-600">{order.user.email}</p>
+                        <p className="font-medium text-gray-900">{order.customer.name}</p>
+                        <p className="text-sm text-gray-600">{order.customer.email}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4 font-semibold text-green-900">
-                      {formatCurrency(order.totalPrice)}
+                      {formatCurrency(Number(order.total))}
                     </td>
                     <td className="px-6 py-4">
                       <Badge className={getStatusColor(order.status)}>
-                        {order.status.replace('_', ' ')}
+                        {order.status.replace(/_/g, ' ')}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{order.deliveryCity}</td>
+                    <td className="px-6 py-4 text-gray-600">{order.deliveryArea || '—'}</td>
                     <td className="px-6 py-4 text-gray-600">
                       {formatDate(new Date(order.createdAt))}
                     </td>

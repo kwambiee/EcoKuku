@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
       data: {
         recordedDate: new Date(recordedDate),
         feedType,
-        quantityUsed,
-        quantityRemaining,
+        quantityUsed: parseFloat(quantityUsed),
+        quantityRemaining: quantityRemaining ? parseFloat(quantityRemaining) : null,
         supplier,
         notes,
       },

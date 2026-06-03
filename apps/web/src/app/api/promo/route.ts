@@ -13,48 +13,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const promoCode = await db.promoCode.findUnique({
+    const promo = await db.promo.findUnique({
       where: { code },
     });
 
-    if (!promoCode) {
+    if (!promo) {
       return NextResponse.json(
         { error: 'Invalid promo code' },
         { status: 404 },
       );
     }
 
-    if (!promoCode.isActive) {
+    if (!promo.active) {
       return NextResponse.json(
         { error: 'This promo code is no longer active' },
         { status: 400 },
       );
     }
 
-    if (new Date() > promoCode.expiresAt) {
+    if (new Date() > promo.endDate) {
       return NextResponse.json(
         { error: 'This promo code has expired' },
         { status: 400 },
       );
     }
 
-    if (orderTotal && orderTotal < promoCode.minOrderValue) {
+    if (promo.maxUses && promo.uses >= promo.maxUses) {
       return NextResponse.json(
-        {
-          error: `Minimum order value of ${promoCode.minOrderValue} required`,
-        },
+        { error: 'This promo code has reached its usage limit' },
         { status: 400 },
       );
     }
 
-    const discount = (orderTotal * promoCode.discountPercentage) / 100;
+    let discountAmount = 0;
+    const discountValue = Number(promo.discountValue);
+
+    if (promo.discountType === 'PERCENTAGE') {
+      discountAmount = orderTotal ? Math.round((orderTotal * discountValue) / 100) : 0;
+    } else {
+      discountAmount = discountValue;
+    }
 
     return NextResponse.json({
       valid: true,
-      code: promoCode.code,
-      discountPercentage: promoCode.discountPercentage,
-      discountAmount: discount,
-      description: promoCode.description,
+      code: promo.code,
+      discountType: promo.discountType,
+      discountValue,
+      discountAmount,
+      description: promo.description,
     });
   } catch (error) {
     console.error('Promo validation error:', error);

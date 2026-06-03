@@ -35,6 +35,7 @@ model User {
   addresses     Address[]
   orders        Order[]
   reviews       Review[]
+  batchOrders   BatchOrder[]
 
   @@index([email])
   @@index([phone])
@@ -278,6 +279,12 @@ model Batch {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
+  // Booking fields
+  isOpenForBooking Boolean    @default(false)
+  maxBookings      Int?
+  bookedCount      Int        @default(0)
+  pricePerChick    Decimal?   @db.Decimal(10, 2)
+
   // Relations
   mortalityLogs MortalityLog[]
   growthLogs    GrowthLog[]
@@ -285,6 +292,7 @@ model Batch {
   healthEvents  HealthEvent[]
   eggProduction EggProduction[]
   feedLogs      FeedLog[]
+  batchOrders   BatchOrder[]
 
   @@index([type])
   @@index([status])
@@ -397,7 +405,6 @@ model FeedType {
   createdAt DateTime @default(now())
 
   stock     FeedStock[]
-  logs      FeedLog[]
 }
 
 model FeedStock {
@@ -487,6 +494,58 @@ model HealthEvent {
 
   @@index([batchId])
   @@index([date])
+}
+
+// ============= BATCH ORDERS (CUSTOMER PRE-ORDERS FOR REARING) =============
+
+enum BatchOrderStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  GROWING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+model BatchOrder {
+  id                String           @id @default(cuid())
+  orderNumber       String           @unique
+  customerId        String
+  batchId           String
+  quantity          Int
+  pricePerChick     Decimal          @db.Decimal(10, 2)
+  totalPrice        Decimal          @db.Decimal(10, 2)
+  depositAmount     Decimal          @db.Decimal(10, 2)
+  depositPaid       Boolean          @default(false)
+  depositPaymentRef String?
+  status            BatchOrderStatus @default(PENDING_PAYMENT)
+  expectedReadyDate DateTime?
+  deliveryArea      String?
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  customer          User             @relation(fields: [customerId], references: [id])
+  batch             Batch            @relation(fields: [batchId], references: [id])
+  updates           BatchOrderUpdate[]
+
+  @@index([customerId])
+  @@index([batchId])
+  @@index([status])
+}
+
+model BatchOrderUpdate {
+  id           String     @id @default(cuid())
+  batchOrderId String
+  title        String
+  message      String
+  type         String     @default("UPDATE")
+  createdAt    DateTime   @default(now())
+
+  batchOrder   BatchOrder @relation(fields: [batchOrderId], references: [id], onDelete: Cascade)
+
+  @@index([batchOrderId])
+  @@index([createdAt])
 }
 
 // ============= SETTINGS & CONFIGURATION =============

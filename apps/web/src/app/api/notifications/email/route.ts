@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const order = await db.order.findUnique({
       where: { id: orderId },
       include: {
-        user: {
+        customer: {
           select: { email: true, name: true, phone: true },
         },
         items: {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!order || !order.user?.email) {
+    if (!order || !order.customer?.email) {
       return NextResponse.json(
         { error: 'Order or customer email not found' },
         { status: 404 },
@@ -40,26 +40,26 @@ export async function POST(request: NextRequest) {
     switch (eventType) {
       case 'ORDER_CONFIRMED':
         response = await emailClient.sendOrderConfirmationEmail(
-          order.user.email,
-          order.user.name,
+          order.customer.email,
+          order.customer.name,
           order.id,
-          order.totalPrice,
+          Number(order.total),
           order.items,
         );
         break;
 
       case 'DELIVERED':
         response = await emailClient.sendDeliveryConfirmationEmail(
-          order.user.email,
-          order.user.name,
+          order.customer.email,
+          order.customer.name,
           order.id,
         );
         break;
 
       case 'PAYMENT_FAILED':
         response = await emailClient.sendPaymentFailureEmail(
-          order.user.email,
-          order.user.name,
+          order.customer.email,
+          order.customer.name,
           order.id,
         );
         break;

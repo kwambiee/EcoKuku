@@ -18,13 +18,13 @@ export async function POST(request: NextRequest) {
     const order = await db.order.findUnique({
       where: { id: orderId },
       include: {
-        user: {
+        customer: {
           select: { phone: true, name: true },
         },
       },
     });
 
-    if (!order || !order.user?.phone) {
+    if (!order || !order.customer?.phone) {
       return NextResponse.json(
         { error: 'Order or customer phone not found' },
         { status: 404 },
@@ -37,15 +37,15 @@ export async function POST(request: NextRequest) {
     switch (eventType) {
       case 'ORDER_CONFIRMED':
         response = await smsClient.sendOrderConfirmation(
-          order.user.phone,
+          order.customer.phone,
           order.id,
-          order.totalPrice,
+          Number(order.total),
         );
         break;
 
       case 'PAYMENT_RECEIVED':
         response = await smsClient.sendPaymentReminder(
-          order.user.phone,
+          order.customer.phone,
           order.id,
         );
         break;
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
           if (driver) {
             response = await smsClient.sendDeliveryNotification(
-              order.user.phone,
+              order.customer.phone,
               order.id,
               driver.name,
               driver.phone,
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
       case 'DELIVERED':
         response = await smsClient.sendDeliveryConfirmation(
-          order.user.phone,
+          order.customer.phone,
           order.id,
         );
         break;

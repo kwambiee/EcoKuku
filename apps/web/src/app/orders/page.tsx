@@ -1,189 +1,166 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@ecokuku/ui';
-import { Package, Truck, CheckCircle, Clock } from 'lucide-react';
+import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
+import { Package, Truck, CheckCircle, Clock, XCircle, ArrowRight } from 'lucide-react';
+
+interface OrderItem {
+  id: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+  product: { name: string };
+}
+
+interface Order {
+  id: string;
+  orderNumber: string;
+  total: number;
+  status: string;
+  createdAt: string;
+  deliveryArea?: string;
+  items: OrderItem[];
+}
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  PENDING:          { label: 'Pending Payment', color: 'bg-yellow-100 text-yellow-800', icon: <Clock size={16} /> },
+  PAID:             { label: 'Paid',            color: 'bg-cyan-100 text-cyan-800',     icon: <CheckCircle size={16} /> },
+  PROCESSING:       { label: 'Processing',      color: 'bg-blue-100 text-blue-800',     icon: <Package size={16} /> },
+  PACKED:           { label: 'Packed',          color: 'bg-indigo-100 text-indigo-800', icon: <Package size={16} /> },
+  OUT_FOR_DELIVERY: { label: 'Out for Delivery',color: 'bg-purple-100 text-purple-800', icon: <Truck size={16} /> },
+  DELIVERED:        { label: 'Delivered',       color: 'bg-green-100 text-green-800',   icon: <CheckCircle size={16} /> },
+  CANCELLED:        { label: 'Cancelled',       color: 'bg-red-100 text-red-800',       icon: <XCircle size={16} /> },
+  FAILED:           { label: 'Failed',          color: 'bg-red-100 text-red-800',       icon: <XCircle size={16} /> },
+};
 
 export default function OrdersPage() {
-  const [orders] = useState([
-    {
-      id: 'ORD-001',
-      date: '2024-01-15',
-      total: 2600,
-      status: 'DELIVERED',
-      items: [
-        { name: 'Free Range Eggs (30 pieces)', quantity: 2, price: 1200 },
-      ],
-      trackingUrl: '#',
-      estimatedDelivery: '2024-01-16',
-    },
-    {
-      id: 'ORD-002',
-      date: '2024-01-18',
-      total: 3800,
-      status: 'SHIPPED',
-      items: [
-        { name: 'Live Broiler Chicken', quantity: 1, price: 3500 },
-      ],
-      trackingUrl: '#',
-      estimatedDelivery: '2024-01-19',
-    },
-  ]);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-        return <Clock size={20} className="text-yellow-500" />;
-      case 'SHIPPED':
-        return <Truck size={20} className="text-blue-500" />;
-      case 'DELIVERED':
-        return <CheckCircle size={20} className="text-green-500" />;
-      default:
-        return <Package size={20} className="text-gray-500" />;
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/login?callbackUrl=/orders');
     }
-  };
+  }, [status, router]);
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'SHIPPED':
-        return 'bg-blue-100 text-blue-800';
-      case 'DELIVERED':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  useEffect(() => {
+    if (session?.user) {
+      fetch('/api/orders')
+        .then((r) => r.json())
+        .then((data) => setOrders(data.data || []))
+        .catch(() => setOrders([]))
+        .finally(() => setIsLoading(false));
     }
-  };
+  }, [session]);
+
+  if (status === 'loading' || isLoading) {
+    return (
+      <>
+        <Navbar />
+        <div className="min-h-screen bg-gray-50 py-12 px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-8" />
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="bg-white rounded-lg border border-gray-200 p-6 mb-4 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
+  if (!session) return null;
 
   if (orders.length === 0) {
     return (
-      <div className="min-h-screen bg-white py-16 px-4">
-        <div className="max-w-md mx-auto text-center">
-          <div className="text-6xl mb-6">📦</div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">No Orders Yet</h1>
-          <p className="text-gray-600 mb-8">Start shopping to place your first order!</p>
-          <Link href="/shop">
-            <Button className="bg-green-600 text-white hover:bg-green-700">Browse Products</Button>
-          </Link>
+      <>
+        <Navbar />
+        <div className="min-h-screen bg-white py-16 px-4">
+          <div className="max-w-md mx-auto text-center">
+            <div className="text-6xl mb-6">📦</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-3">No Orders Yet</h1>
+            <p className="text-gray-600 mb-8">Start shopping to place your first order!</p>
+            <Link href="/shop">
+              <Button className="bg-green-600 text-white hover:bg-green-700">Browse Products</Button>
+            </Link>
+          </div>
         </div>
-      </div>
+        <Footer />
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Orders</h1>
-          <p className="text-gray-600">Track and manage your orders</p>
-        </div>
+    <>
+      <Navbar />
+      <main className="flex-1 bg-gray-50 py-12 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">My Orders</h1>
+            <p className="text-gray-600">Track and manage your orders</p>
+          </div>
 
-        <div className="space-y-6">
-          {orders.map((order) => (
-            <div key={order.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              {/* Order Header */}
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {getStatusIcon(order.status)}
-                  <div>
-                    <p className="font-semibold text-gray-900">Order #{order.id}</p>
-                    <p className="text-sm text-gray-600">{new Date(order.date).toLocaleDateString()}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-lg text-gray-900">KSh {order.total.toLocaleString()}</p>
-                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(order.status)}`}>
-                    {order.status}
-                  </span>
-                </div>
-              </div>
-
-              {/* Order Items */}
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-3">Items</h3>
-                <div className="space-y-2">
-                  {order.items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-gray-700">
-                        {item.name} x{item.quantity}
-                      </span>
-                      <span className="font-medium text-gray-900">
-                        KSh {(item.price * item.quantity).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Order Timeline */}
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-4">Status Timeline</h3>
-                <div className="space-y-3">
-                  {order.status === 'DELIVERED' && (
-                    <div className="flex gap-4">
-                      <CheckCircle size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
+          <div className="space-y-4">
+            {orders.map((order) => {
+              const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
+              return (
+                <div key={order.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-green-300 transition-colors">
+                  <div className="px-6 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="text-gray-500">{cfg.icon}</div>
                       <div>
-                        <p className="font-semibold text-gray-900">Delivered</p>
-                        <p className="text-sm text-gray-600">
-                          {new Date(order.estimatedDelivery).toLocaleDateString()}
+                        <p className="font-bold text-gray-900">{order.orderNumber}</p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(order.createdAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {order.deliveryArea && ` · ${order.deliveryArea}`}
                         </p>
                       </div>
                     </div>
-                  )}
-                  {order.status === 'SHIPPED' && (
-                    <>
-                      <div className="flex gap-4">
-                        <Truck size={20} className="text-blue-500 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-gray-900">Shipped</p>
-                          <p className="text-sm text-gray-600">In transit to you</p>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-600 ml-9">
-                        Estimated delivery: {new Date(order.estimatedDelivery).toLocaleDateString()}
-                      </p>
-                    </>
-                  )}
-                  {order.status === 'PENDING' && (
-                    <div className="flex gap-4">
-                      <Clock size={20} className="text-yellow-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-semibold text-gray-900">Processing</p>
-                        <p className="text-sm text-gray-600">We're preparing your order</p>
-                      </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-gray-900">KSh {Number(order.total).toLocaleString()}</p>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>
+                        {cfg.label}
+                      </span>
                     </div>
-                  )}
+                  </div>
+
+                  <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+                    <p className="text-sm text-gray-600">
+                      {order.items.length} item{order.items.length !== 1 ? 's' : ''} —{' '}
+                      {order.items.slice(0, 2).map((i) => i.product.name).join(', ')}
+                      {order.items.length > 2 && ` +${order.items.length - 2} more`}
+                    </p>
+                    <Link
+                      href={`/orders/${order.id}`}
+                      className="flex items-center gap-1 text-sm text-green-700 font-medium hover:text-green-900"
+                    >
+                      View <ArrowRight size={14} />
+                    </Link>
+                  </div>
                 </div>
-              </div>
+              );
+            })}
+          </div>
 
-              {/* Order Actions */}
-              <div className="px-6 py-4 flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1 border border-gray-300 text-gray-700 hover:bg-gray-50"
-                >
-                  View Details
-                </Button>
-                {order.status === 'SHIPPED' && (
-                  <Button className="flex-1 bg-green-600 text-white hover:bg-green-700">
-                    Track Package
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
+          <div className="mt-8 text-center">
+            <Link href="/shop">
+              <Button className="bg-green-600 text-white hover:bg-green-700">Continue Shopping</Button>
+            </Link>
+          </div>
         </div>
-
-        {/* Continue Shopping */}
-        <div className="mt-8 text-center">
-          <p className="text-gray-600 mb-4">Want to order more?</p>
-          <Link href="/shop">
-            <Button className="bg-green-600 text-white hover:bg-green-700">Continue Shopping</Button>
-          </Link>
-        </div>
-      </div>
-    </div>
+      </main>
+      <Footer />
+    </>
   );
 }

@@ -73,26 +73,31 @@ export async function POST(request: NextRequest) {
       price,
       type,
       category,
-      stockQuantity,
-      isAvailable,
+      stock,
+      available,
+      wholesalePrice,
     } = body;
 
-    if (!name || !price || !type) {
+    if (!name || !price || !type || !category || !description) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: name, description, price, type, category' },
         { status: 400 },
       );
     }
 
+    const sku = `SKU-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 999).toString().padStart(3, '0')}`;
+
     const product = await db.product.create({
       data: {
+        sku,
         name,
         description,
         price,
+        wholesalePrice: wholesalePrice || null,
         type,
         category,
-        stockQuantity: stockQuantity || 0,
-        isAvailable: isAvailable !== false,
+        stock: stock || 0,
+        available: available !== false,
       },
     });
 

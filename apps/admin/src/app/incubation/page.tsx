@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
-import { Button, Card, Badge } from '@ecokuku/ui';
-import { Plus } from 'lucide-react';
+import { Button, Card } from '@ecokuku/ui';
+import { Plus, ArrowRight } from 'lucide-react';
 
 interface IncubationBatch {
   id: string;
@@ -126,6 +126,49 @@ export default function IncubationPage() {
     setShowResultsModal(true);
   };
 
+  const createFarmBatch = async (batch: IncubationBatch) => {
+    if (!batch.hatchedCount || batch.hatchedCount === 0) {
+      alert('Please record hatched count first');
+      return;
+    }
+
+    const batchNumber = prompt('Enter Farm Batch Number:', `BATCH-${new Date().getTime().toString().slice(-6)}`);
+    if (!batchNumber) return;
+
+    const batchTypeOptions = 'Select batch type:\n1. BROILER (Meat chickens)\n2. LAYER (Egg-laying)\n3. KIENYEJI (Traditional breed)\n\nEnter 1, 2, or 3:';
+    const typeSelection = prompt(batchTypeOptions, '1');
+    
+    let batchType = 'BROILER';
+    if (typeSelection === '2') batchType = 'LAYER';
+    if (typeSelection === '3') batchType = 'KIENYEJI';
+
+    try {
+      const response = await fetch('/api/batches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          batchNumber,
+          type: batchType,
+          quantity: batch.hatchedCount,
+          startDate: new Date().toISOString().split('T')[0],
+          notes: `From incubation batch ${batch.batchNumber}. Original egg count: ${batch.eggCount}, Hatched: ${batch.hatchedCount}, Failed: ${batch.failedCount}. ${batch.notes || ''}`,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to create farm batch');
+      }
+
+      alert('Farm batch created successfully from incubation batch!');
+      fetchBatches();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create farm batch');
+      console.error('Error creating farm batch:', err);
+    }
+  };
+
   return (
     <div className="flex">
       <Sidebar />
@@ -196,12 +239,22 @@ export default function IncubationPage() {
                         <td className="px-6 py-4 text-sm">{new Date(batch.startDate).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">{new Date(batch.expectedHatchDate).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-sm">
-                          <Button
-                            onClick={() => openResultsModal(batch)}
-                            className="bg-blue-600 text-white text-xs px-2 py-1 hover:bg-blue-700"
-                          >
-                            {batch.hatchedCount || batch.failedCount ? '✓ Update' : 'Record'}
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => openResultsModal(batch)}
+                              className="bg-blue-600 text-white text-xs px-2 py-1 hover:bg-blue-700"
+                            >
+                              {batch.hatchedCount || batch.failedCount ? '✓ Update' : 'Record'}
+                            </Button>
+                            {batch.hatchedCount && batch.hatchedCount > 0 && (
+                              <Button
+                                onClick={() => createFarmBatch(batch)}
+                                className="bg-green-600 text-white text-xs px-2 py-1 hover:bg-green-700 flex items-center gap-1"
+                              >
+                                <ArrowRight size={14} /> Farm Batch
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))

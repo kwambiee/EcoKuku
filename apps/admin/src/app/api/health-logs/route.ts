@@ -104,6 +104,26 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Notify customers with active batch orders for this batch
+    if (batchId) {
+      const activeBatchOrders = await db.batchOrder.findMany({
+        where: { batchId, status: { in: ['CONFIRMED', 'GROWING'] } },
+        select: { id: true },
+      });
+
+      if (activeBatchOrders.length > 0) {
+        const vaccineDate = new Date(dateAdministered).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
+        await db.batchOrderUpdate.createMany({
+          data: activeBatchOrders.map((bo) => ({
+            batchOrderId: bo.id,
+            title: `${vaccineType} vaccination completed`,
+            message: `Your batch received the ${vaccineType} vaccination on ${vaccineDate}.${dosage ? ` Dosage: ${dosage}.` : ''}`,
+            type: 'MILESTONE',
+          })),
+        });
+      }
+    }
+
     return NextResponse.json(
       {
         message: 'Vaccination record created successfully',
@@ -115,27 +135,6 @@ export async function POST(request: NextRequest) {
     console.error('Vaccination record creation error:', error);
     return NextResponse.json(
       { error: 'Failed to create vaccination record' },
-      { status: 500 },
-    );
-  }
-}
-        batch: {
-          select: { id: true, batchNumber: true },
-        },
-      },
-    });
-
-    return NextResponse.json(
-      {
-        message: 'Vaccination log created successfully',
-        log,
-      },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error('Vaccination log creation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create vaccination log' },
       { status: 500 },
     );
   }

@@ -3,23 +3,30 @@ import { getServerSession } from 'next-auth/next';
 import { db } from '@ecokuku/db';
 import { authOptions } from '@/lib/auth';
 
+function generateOrderNumber(): string {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.floor(Math.random() * 9999).toString().padStart(4, '0');
+  return `ORD-${timestamp}-${random}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!session?.user || !('id' in session.user)) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 },
       );
     }
 
+    const userId = (session.user as any).id;
+
     const body = await request.json();
     const {
       items,
       deliveryAddress,
-      deliveryCity,
-      deliveryPhone,
+      deliveryArea,
       deliveryDate,
       notes,
       promoCode,
@@ -32,8 +39,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate total price
-    let totalPrice = 0;
+    let subtotal = 0;
     const orderItems = [];
 
     for (const item of items) {
@@ -48,37 +54,63 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      totalPrice += product.price * item.quantity;
+      if (!product.available) {
+        return NextResponse.json(
+          { error: `Product ${product.name} is not available` },
+          { status: 400 },
+        );
+      }
+
+      const itemPrice = Number(product.price);
+      const itemSubtotal = itemPrice * item.quantity;
+      subtotal += itemSubtotal;
       orderItems.push({
         productId: item.productId,
         quantity: item.quantity,
-        priceAtTime: product.price,
+        price: itemPrice,
+        subtotal: itemSubtotal,
       });
     }
 
-    // Apply promo code if provided
-    let discount = 0;
+    const deliveryFee = 200;
+    let discountAmount = 0;
+    let promoId: string | undefined;
+
     if (promoCode) {
-      const promo = await db.promoCode.findUnique({
+      const promo = await db.promo.findUnique({
         where: { code: promoCode },
       });
 
-      if (promo && promo.isActive && new Date() < promo.expiresAt) {
-        discount = (totalPrice * promo.discountPercentage) / 100;
-        totalPrice -= discount;
+      if (promo && promo.active && new Date() < promo.endDate) {
+        const discountValue = Number(promo.discountValue);
+        if (promo.discountType === 'PERCENTAGE') {
+          discountAmount = Math.round((subtotal * discountValue) / 100);
+        } else {
+          discountAmount = discountValue;
+        }
+        promoId = promo.id;
+        await db.promo.update({
+          where: { id: promo.id },
+          data: { uses: { increment: 1 } },
+        });
       }
     }
 
-    // Create order
+    const total = subtotal + deliveryFee - discountAmount;
+
     const order = await db.order.create({
       data: {
-        userId: session.user.id,
-        totalPrice,
-        status: 'PENDING_PAYMENT',
+        orderNumber: generateOrderNumber(),
+        customerId: userId,
+        status: 'PENDING',
+        subtotal,
+        deliveryFee,
+        discountAmount,
+        total,
+        promoId,
         deliveryAddress,
-        deliveryCity,
-        deliveryPhone,
-        deliveryDate: new Date(deliveryDate),
+        deliveryArea,
+        deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
         notes,
         items: {
           createMany: {
@@ -109,12 +141,14 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!session?.user || !('id' in session.user)) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 },
       );
     }
+
+    const userId = (session.user as any).id;
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
@@ -124,7 +158,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const where: any = {
-      userId: session.user.id,
+      customerId: userId,
     };
 
     if (status) {

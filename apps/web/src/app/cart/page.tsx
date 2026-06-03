@@ -1,70 +1,56 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@ecokuku/ui';
-import { Trash2 } from 'lucide-react';
-
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  category?: string;
-}
+import { Trash2, AlertCircle } from 'lucide-react';
+import { useCart } from '@/hooks/useCart';
 
 export default function CartPage() {
-  // Mock cart data - replace with context/hook
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: '1',
-      name: 'Free Range Eggs (30 pieces)',
-      price: 1200,
-      quantity: 2,
-      category: 'Eggs',
-    },
-    {
-      id: '2',
-      name: 'Chicken - Whole (Premium)',
-      price: 3500,
-      quantity: 1,
-      category: 'Meat',
-    },
-  ]);
-
+  const { items: cartItems, removeItem, updateQuantity, getTotal, clearCart } = useCart();
   const [promoCode, setPromoCode] = useState('');
   const [promoDiscount, setPromoDiscount] = useState(0);
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
-  const updateQuantity = (id: string, newQuantity: number) => {
-    if (newQuantity < 1) {
-      removeItem(id);
-    } else {
-      setCartItems(
-        cartItems.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item))
-      );
-    }
-  };
-
-  const removeItem = (id: string) => {
-    setCartItems(cartItems.filter((item) => item.id !== id));
-  };
-
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const delivery = subtotal > 0 ? 200 : 0;
-  const total = subtotal + delivery - promoDiscount;
-
-  const applyPromo = () => {
-    if (promoCode.toUpperCase() === 'WELCOME10') {
-      setPromoDiscount(Math.round(subtotal * 0.1));
-      alert('Promo code applied! 10% off');
-    } else if (promoCode.length > 0) {
-      alert('Invalid promo code');
-    }
-  };
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const formatCurrency = (value: number) => `KSh ${value.toLocaleString()}`;
 
-  if (cartItems.length === 0) {
+  const handleUpdateQuantity = (id: string, newQuantity: number) => {
+    if (newQuantity < 1) {
+      removeItem(id);
+    } else {
+      updateQuantity(id, newQuantity);
+    }
+  };
+
+  const applyPromo = async () => {
+    if (promoCode.length === 0) return;
+
+    try {
+      const res = await fetch('/api/promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promoCode }),
+        credentials: 'include',
+      });
+
+      if (!res.ok) throw new Error('Invalid promo code');
+
+      const data = await res.json();
+      setPromoDiscount(data.discount || 0);
+      setPromoApplied(true);
+    } catch (err) {
+      console.error('Error applying promo:', err);
+      setPromoApplied(false);
+    }
+  };
+
+  if (!hydrated || cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-white py-16 px-4">
         <div className="max-w-md mx-auto text-center">
@@ -78,6 +64,10 @@ export default function CartPage() {
       </div>
     );
   }
+
+  const subtotal = getTotal();
+  const delivery = subtotal > 0 ? 200 : 0;
+  const total = subtotal + delivery - promoDiscount;
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -104,13 +94,14 @@ export default function CartPage() {
                     <button
                       onClick={() => removeItem(item.id)}
                       className="text-red-600 hover:text-red-700 mb-4"
+                      title="Remove item"
                     >
                       <Trash2 size={20} />
                     </button>
 
                     <div className="flex items-center gap-2 border border-gray-300 rounded-lg">
                       <button
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
                         className="px-3 py-1 hover:bg-gray-100 font-semibold"
                       >
                         −
@@ -118,12 +109,12 @@ export default function CartPage() {
                       <input
                         type="number"
                         value={item.quantity}
-                        onChange={(e) => updateQuantity(item.id, Math.max(1, parseInt(e.target.value) || 1))}
+                        onChange={(e) => handleUpdateQuantity(item.id, Math.max(1, parseInt(e.target.value) || 1))}
                         className="w-10 text-center border-0 py-1 font-semibold"
                         inputMode="numeric"
                       />
                       <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
                         className="px-3 py-1 hover:bg-gray-100 font-semibold"
                       >
                         +
@@ -167,17 +158,28 @@ export default function CartPage() {
             {/* Promo Code */}
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <label className="text-sm font-semibold text-gray-700 block mb-2">Promo Code</label>
+              {promoApplied && promoDiscount > 0 && (
+                <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex gap-2 items-center">
+                  <span className="text-green-600">✓</span>
+                  <span className="text-sm text-green-800">Promo code applied!</span>
+                </div>
+              )}
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                  placeholder="Try WELCOME10"
+                  onChange={(e) => {
+                    setPromoCode(e.target.value.toUpperCase());
+                    setPromoApplied(false);
+                  }}
+                  placeholder="Enter promo code"
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  disabled={promoApplied}
                 />
                 <button
                   onClick={applyPromo}
-                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 text-sm font-medium"
+                  disabled={promoApplied || promoCode.length === 0}
+                  className="px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Apply
                 </button>

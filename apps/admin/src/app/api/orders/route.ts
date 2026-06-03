@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         include: {
-          user: {
+          customer: {
             select: { id: true, name: true, email: true, phone: true },
           },
           items: { include: { product: true } },
@@ -73,7 +73,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { orderId, status, driverId, deliveryNotes } = body;
+    const { orderId, status, driverId, notes } = body;
 
     if (!orderId || !status) {
       return NextResponse.json(
@@ -88,14 +88,14 @@ export async function PATCH(request: NextRequest) {
       updateData.driverId = driverId;
     }
 
-    if (deliveryNotes !== undefined) {
-      updateData.deliveryNotes = deliveryNotes;
+    if (notes !== undefined) {
+      updateData.notes = notes;
     }
 
     const order = await db.order.update({
       where: { id: orderId },
       data: updateData,
-      include: { user: true, items: { include: { product: true } } },
+      include: { customer: true, items: { include: { product: true } } },
     });
 
     return NextResponse.json({

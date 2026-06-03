@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     // Build filter conditions
     const where: any = {
-      isAvailable: true,
+      available: true,
     };
 
     if (category) {

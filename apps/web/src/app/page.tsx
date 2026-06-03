@@ -98,23 +98,23 @@ export default function HomePage() {
             <p className="text-gray-600 mb-10">Fresh today from our farm.</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Sample Product Cards */}
               {[
-                { name: 'Eggs - Tray (30)', price: 650, image: '🥚' },
-                { name: 'Live Broiler Chicken', price: 850, image: '🐔' },
-                { name: 'Dressed Chicken', price: 1200, image: '🍗' },
-                { name: 'Day-Old Chicks (100)', price: 1500, image: '🐣' },
+                { name: 'Eggs Tray (30)', price: 650, image: '🥚', category: 'EGGS', tag: 'Farm fresh daily' },
+                { name: 'Live Broiler Chicken', price: 850, image: '🐔', category: 'LIVE_POULTRY', tag: 'Free-range' },
+                { name: 'Dressed Chicken', price: 1200, image: '🍗', category: 'DRESSED_MEAT', tag: 'Ready to cook' },
+                { name: 'Day-Old Chicks', price: 150, image: '🐣', category: 'CHICKS', tag: 'Per chick' },
               ].map((product) => (
-                <Link key={product.name} href="/shop" className="card overflow-hidden hover:border-green-300 transition-colors">
-                  <div className="bg-green-100 h-40 flex items-center justify-center text-6xl">
-                    {product.image}
+                <Link key={product.name} href={`/shop?category=${product.category}`} className="group card overflow-hidden hover:border-green-400 hover:shadow-md transition-all duration-200">
+                  <div className="bg-green-50 h-40 flex items-center justify-center text-6xl group-hover:bg-green-100 transition-colors">
+                    <span className="group-hover:scale-110 transition-transform duration-200 inline-block">{product.image}</span>
                   </div>
                   <div className="p-4">
-                    <h3 className="font-bold text-sm mb-2">{product.name}</h3>
+                    <p className="text-xs text-green-600 font-medium mb-1">{product.tag}</p>
+                    <h3 className="font-bold text-sm mb-2 group-hover:text-green-800 transition-colors">{product.name}</h3>
                     <p className="text-green-700 font-bold text-lg">KSh {product.price.toLocaleString()}</p>
-                    <button className="w-full mt-3 bg-green-800 text-white font-medium py-2 rounded-md hover:bg-green-700 transition-colors">
-                      Add to cart
-                    </button>
+                    <div className="w-full mt-3 bg-green-800 text-white font-medium py-2 rounded-md hover:bg-green-700 transition-colors text-center text-sm">
+                      Shop now →
+                    </div>
                   </div>
                 </Link>
               ))}
@@ -126,12 +126,34 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CTA Section */}
+        {/* Book a Batch CTA */}
+        <section className="py-14 px-4 bg-white">
+          <div className="container-base">
+            <div className="bg-gradient-to-br from-green-900 to-green-700 rounded-2xl p-8 md:p-12 text-white flex flex-col md:flex-row items-center justify-between gap-8">
+              <div className="max-w-xl">
+                <div className="text-4xl mb-3">🐣</div>
+                <h2 className="text-3xl font-bold mb-3">Want to raise your own flock?</h2>
+                <p className="text-green-100 text-lg mb-2">Reserve a batch of chicks directly from our farm. We raise them, you track the progress — vaccinations, weight, health updates — and collect when ready.</p>
+                <p className="text-green-200 text-sm">30% deposit to reserve · Balance on delivery · Full lifecycle transparency</p>
+              </div>
+              <div className="flex-shrink-0">
+                <Link href="/batches" className="inline-block px-8 py-4 bg-amber-300 text-amber-900 rounded-xl font-bold text-lg hover:bg-amber-200 transition-colors shadow-lg">
+                  Browse Available Batches →
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Promo CTA */}
         <section className="bg-green-900 text-white py-12 text-center">
           <div className="container-base">
             <h2 className="text-2xl md:text-3xl font-bold mb-3">Get 15% off your first order</h2>
-            <p className="text-green-100 mb-6">Use referral code <span className="font-bold">FRESH15</span> at checkout. Valid for retail orders only.</p>
-            <Link href="/checkout" className="btn-primary">Claim discount</Link>
+            <p className="text-green-100 mb-6">Use code <span className="font-bold bg-green-800 px-2 py-0.5 rounded">FRESH15</span> at checkout. Valid for retail orders only.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/shop" className="btn-primary">Shop now</Link>
+              <Link href="/journey" className="btn-secondary">Learn about our farm</Link>
+            </div>
           </div>
         </section>
       </main>

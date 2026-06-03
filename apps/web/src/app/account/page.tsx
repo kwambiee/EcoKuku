@@ -9,7 +9,8 @@ import { formatCurrency, formatDate } from '@ecokuku/ui';
 
 interface Order {
   id: string;
-  totalPrice: number;
+  orderNumber: string;
+  total: number;
   status: string;
   createdAt: string;
   items: any[];
@@ -59,9 +60,21 @@ export default function AccountPage() {
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Call update profile API
-    console.log('Updating profile:', formData);
-    setIsEditing(false);
+    try {
+      const res = await fetch('/api/user', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: formData.name }),
+      });
+      if (res.ok) {
+        setIsEditing(false);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to update profile');
+      }
+    } catch {
+      alert('An error occurred. Please try again.');
+    }
   };
 
   const handleSignOut = async () => {
@@ -85,7 +98,7 @@ export default function AccountPage() {
       <div className="mx-auto max-w-4xl">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-900">My Account</h1>
-          <Button variant="outline" onClick={handleSignOut}>
+          <Button variant="secondary" onClick={handleSignOut}>
             Sign Out
           </Button>
         </div>
@@ -141,7 +154,7 @@ export default function AccountPage() {
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="secondary"
                       onClick={() => setIsEditing(false)}
                       className="flex-1"
                     >
@@ -177,7 +190,7 @@ export default function AccountPage() {
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <p className="font-semibold text-gray-900">
-                            Order #{order.id.substring(0, 8)}
+                            {order.orderNumber || `#${order.id.substring(0, 8)}`}
                           </p>
                           <p className="text-sm text-gray-600">
                             {formatDate(new Date(order.createdAt))}
@@ -185,7 +198,7 @@ export default function AccountPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-green-900">
-                            {formatCurrency(order.totalPrice)}
+                            {formatCurrency(Number(order.total))}
                           </p>
                           <p className="text-sm text-gray-600 capitalize">{order.status}</p>
                         </div>

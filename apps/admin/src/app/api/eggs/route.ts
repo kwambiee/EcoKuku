@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
       broken,
       cracked,
       notes,
+      batchId,
     } = body;
 
     if (!date || collected === undefined) {
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
         broken: broken ? parseInt(broken) : 0,
         cracked: cracked ? parseInt(cracked) : 0,
         notes,
+        ...(batchId && { batchId }),
       },
       include: {
         batch: {
@@ -160,6 +162,44 @@ export async function PATCH(request: NextRequest) {
     console.error('Egg production update error:', error);
     return NextResponse.json(
       { error: 'Failed to update egg production record' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(adminAuthOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
+
+    const body = await request.json();
+    const { eggProductionId } = body;
+
+    if (!eggProductionId) {
+      return NextResponse.json(
+        { error: 'Egg production record ID is required' },
+        { status: 400 },
+      );
+    }
+
+    await db.eggProduction.delete({
+      where: { id: eggProductionId },
+    });
+
+    return NextResponse.json(
+      { message: 'Egg production record deleted successfully' },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error('Egg production deletion error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete egg production record' },
       { status: 500 },
     );
   }

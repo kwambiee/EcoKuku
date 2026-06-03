@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Providers } from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -20,9 +21,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#27500A" />
       </head>
       <body className="bg-gray-50">
-        <div className="flex flex-col min-h-screen">
-          {children}
-        </div>
+        <Providers>
+          <div className="flex flex-col min-h-screen">
+            {children}
+          </div>
+        </Providers>
       </body>
     </html>
   );

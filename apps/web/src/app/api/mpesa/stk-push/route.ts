@@ -8,12 +8,14 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!session?.user || !('id' in session.user)) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 },
       );
     }
+
+    const userId = (session.user as any).id;
 
     const body = await request.json();
     const { orderId, phoneNumber, amount } = body;
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (order.userId !== session.user.id) {
+    if (order.customerId !== userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 },
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
     await db.order.update({
       where: { id: orderId },
       data: {
-        mpesaCheckoutRequestId: response.CheckoutRequestID,
+        paymentRef: response.CheckoutRequestID,
       },
     });
 
