@@ -1,264 +1,237 @@
-# 🐔 EcoKuku - Poultry Farm Platform
+# EcoKuku — Poultry Farm Platform
 
-A comprehensive farm management and e-commerce platform for poultry farming in Kenya. Built with Next.js, Prisma, and Turbo.
+A full-stack farm management and e-commerce platform for poultry farming in Nairobi, Kenya. Customers can order products, book batches of chicks to rear, and track their flock's growth and health in real time.
 
-**Status**: 🚀 Development in Progress
+**Status**: ✅ Functional — both apps running
 
-## 📋 Project Structure
+---
+
+## Project Structure
 
 ```
 ecokuku/
 ├── apps/
-│   ├── web/          # Customer-facing e-commerce (Next.js)
-│   └── admin/        # Farm management dashboard (Next.js)
+│   ├── web/          # Customer-facing site   → http://localhost:3000
+│   └── admin/        # Farm management dashboard → http://localhost:3001
 ├── packages/
-│   ├── db/           # Prisma schema & database client
-│   └── ui/           # Shared React components (shadcn/ui)
+│   ├── db/           # Prisma schema, client & seed
+│   └── ui/           # Shared React components
 ├── package.json      # Root workspace config
-├── turbo.json        # Turbo build pipeline
-└── .env.example      # Environment variables template
+└── turbo.json        # Turbo build pipeline
 ```
-
-## 🛠 Tech Stack
-
-- **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS
-- **UI Components**: shadcn/ui
-- **Backend**: Next.js API Routes
-- **Database**: PostgreSQL + Prisma ORM
-- **Build System**: Turbo monorepo
-- **Authentication**: NextAuth.js with role-based access
-- **Payments**: M-PESA via Daraja API
-- **SMS**: Africa's Talking
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js 18+ and npm/yarn
-- PostgreSQL 12+
-- Accounts for: M-PESA Daraja API, Africa's Talking
-
-### Installation
-
-1. **Clone & Install Dependencies**
-   ```bash
-   cd /Users/joykwamboka/Desktop/EcoKuku
-   npm install
-   ```
-
-2. **Setup Environment Variables**
-   ```bash
-   cp .env.example .env.local
-   # Edit .env.local with your credentials
-   ```
-
-3. **Database Setup**
-   ```bash
-   # Create migrations
-   npm run db:push
-
-   # Seed with sample data
-   npm run db:seed
-
-   # Open Prisma Studio (optional)
-   npm run db:studio
-   ```
-
-4. **Start Development**
-   ```bash
-   npm run dev
-   ```
-
-   Apps will be available at:
-   - **Customer Site**: http://localhost:3000
-   - **Admin Dashboard**: http://localhost:3001
-
-## 📦 Workspace Commands
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start all apps in development |
-| `npm run build` | Build all apps for production |
-| `npm run lint` | Lint all apps |
-| `npm run db:push` | Sync Prisma schema with database |
-| `npm run db:seed` | Seed database with sample data |
-| `npm run db:studio` | Open Prisma Studio GUI |
-| `npm run format` | Format all code with Prettier |
-
-## 🗂 Detailed Structure
-
-### `packages/db` - Database Layer
-- Prisma schema with 25+ models
-- Models include Users, Products, Orders, Batches, Incubation, Feed, Health, Vaccinations, etc.
-- Singleton Prisma client exported for all apps
-- Seed script with realistic farm data
-
-**Models Overview**:
-- **Auth & Users**: User, Address, UserRole
-- **Products & Inventory**: Product, ProductType, ProductCategory
-- **Orders & Sales**: Order, OrderItem, OrderType, OrderStatus, Promo
-- **Farm Management**: Batch, IncubationBatch, EggProduction, MortalityLog, GrowthLog
-- **Logistics**: Driver, Delivery, DeliveryStatus
-- **Health**: Vaccination, HealthEvent, VaccinationSchedule
-- **Feed**: FeedType, FeedStock, FeedLog
-- **Reviews**: Review model for product ratings
-
-### `packages/ui` - Shared Components
-- React component library with shadcn/ui
-- Shared utilities and hooks
-- Exported for use in both web and admin apps
-
-### `apps/web` - Customer Website
-- Homepage with hero, featured products, farm journey
-- Shop with category filters and product cards
-- Product detail pages
-- Cart & checkout with M-PESA payment
-- Order tracking
-- Customer account & order history
-- Referral system
-- Reviews
-
-**Pages**:
-- `/` - Home
-- `/shop` - Browse products
-- `/shop/[slug]` - Product details
-- `/checkout` - Payment & delivery
-- `/journey` - Farm transparency timeline
-- `/orders/[id]` - Order tracking
-- `/auth/login` - Authentication
-- `/referral` - Referral rewards
-
-### `apps/admin` - Farm Dashboard
-- Dashboard with metrics and charts
-- **Incubation Management**: Temperature/humidity logs, hatch rate tracking
-- **Batch Management**: Birth-to-market lifecycle tracking, mortality, growth, feed
-- **Egg Production**: Daily collection logs, quality grading, trends
-- **Feed Management**: Stock levels, consumption logs, cost tracking
-- **Health & Vaccination**: Schedule calendars, disease logs, vaccination history
-- **Orders & Sales**: Retail, wholesale, pre-order management
-- **Logistics**: Delivery scheduling, driver assignment
-- **Customers**: Customer list, referral tracking
-- **Reports**: Production efficiency, profit margins, sales trends
-
-**Pages**:
-- `/dashboard` - Overview with metrics
-- `/batches` - Batch grid and lifecycle
-- `/incubation` - Hatchery management
-- `/eggs` - Egg production logs
-- `/feed` - Stock and consumption
-- `/health` - Vaccination calendar
-- `/orders` - Sales management
-- `/logistics` - Delivery scheduling
-- `/customers` - Customer management
-- `/reports` - Analytics & reports
-
-## 📊 Database Schema Highlights
-
-### Core Models
-- **User**: Supports CUSTOMER, ADMIN, STAFF roles
-- **Product**: SKU tracking, wholesale pricing, inventory
-- **Order**: Retail/Wholesale/Pre-order types with status tracking
-- **Batch**: Chicken lifecycle from chick to market
-- **IncubationBatch**: Egg incubation with temperature/humidity logs
-- **EggProduction**: Daily collection with quality metrics
-- **Vaccination**: Scheduled and logged, with veterinarian tracking
-- **HealthEvent**: Disease, treatment, and vet visit logs
-- **Driver & Delivery**: Route and delivery management
-- **Promo**: Percentage and fixed-value discount codes
-
-## 🔐 Authentication
-
-- NextAuth.js with password-based credentials provider
-- JWT tokens with role information
-- Protected API routes with role-based access control
-- Admin/Staff bypass for development
-
-## 💳 M-PESA Integration
-
-- Daraja API for STK Push (payment popup)
-- Callback handler for payment confirmation
-- Order status updates on successful payment
-- Test mode support with configurable phone
-
-## 📱 SMS Notifications
-
-- Africa's Talking integration
-- Order confirmations
-- Delivery updates
-- Promotional messages
-
-## 🎯 Features Roadmap
-
-### Phase 1 ✅
-- [x] Monorepo setup
-- [x] Database schema
-- [x] Seed data
-
-### Phase 2 (In Progress)
-- [ ] Shared UI components
-- [ ] Customer website
-- [ ] Admin dashboard
-- [ ] Authentication
-
-### Phase 3
-- [ ] API routes
-- [ ] M-PESA payment
-- [ ] SMS notifications
-- [ ] Reports & analytics
-
-## 🤝 Development Workflow
-
-1. Create feature branch: `git checkout -b feature/feature-name`
-2. Make changes across packages as needed
-3. Run tests: `npm run lint`
-4. Format code: `npm run format`
-5. Commit & push
-6. Open PR
-
-## 📝 Environment Variables
-
-See `.env.example` for the complete list. Key variables:
-
-```env
-DATABASE_URL=              # PostgreSQL connection
-NEXTAUTH_SECRET=           # JWT secret (32+ chars)
-NEXTAUTH_URL=              # Origin URL for auth
-MPESA_CONSUMER_KEY=        # Daraja API credentials
-MPESA_CONSUMER_SECRET=
-MPESA_SHORTCODE=
-MPESA_PASSKEY=
-AT_API_KEY=                # Africa's Talking SMS
-AT_USERNAME=
-```
-
-## 🐛 Troubleshooting
-
-### Database Connection Issues
-- Ensure PostgreSQL is running
-- Check DATABASE_URL in .env.local
-- Run `npx prisma db push` to validate schema
-
-### Build Errors
-- Clear node_modules: `rm -rf node_modules && npm install`
-- Clean turbo cache: `npx turbo prune --scope=@ecokuku/web --docker`
-
-### Port Conflicts
-- Web app port: `PORT=3000`
-- Admin app port: `PORT=3001`
-
-## 📚 Additional Resources
-
-- [Prisma Docs](https://www.prisma.io/docs/)
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Turbo Monorepo](https://turbo.build/)
-- [M-PESA API Docs](https://developer.safaricom.co.ke/)
-- [Africa's Talking API](https://africastalking.com/)
-
-## 📄 License
-
-MIT
 
 ---
 
-**Last Updated**: March 2024
-**Maintained by**: EcoKuku Team
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL 12+ running locally
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Set up environment variables
+
+Each app has its own `.env.local`. The defaults below work for local development with the standard PostgreSQL setup.
+
+**`apps/web/.env.local`**
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/ecokuku_dev"
+NEXTAUTH_SECRET="xRaMCK6uRBRBil6CExEX+zPFcIKoFxgxy9KneAE8mgo="
+NEXTAUTH_URL="http://localhost:3000"
+```
+
+**`apps/admin/.env.local`**
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/ecokuku_dev"
+NEXTAUTH_SECRET="ecokuku_admin_secret_key_min_32_chars_required_nextauth"
+NEXTAUTH_URL="http://localhost:3001"
+```
+
+### 3. Set up the database
+
+```bash
+# Push the schema to your local PostgreSQL database
+DATABASE_URL="postgresql://postgres:password@localhost:5432/ecokuku_dev" \
+  npx prisma db push --schema packages/db/prisma/schema.prisma
+
+# Seed with test data (users, products, batches, orders)
+npx ts-node packages/db/prisma/seed.ts
+```
+
+### 4. Start the apps
+
+You can start both at once or individually:
+
+**Both apps together:**
+```bash
+npm run dev
+```
+
+**Customer app only (port 3000):**
+```bash
+npm run dev --workspace=apps/web
+```
+
+**Admin app only (port 3001):**
+```bash
+npm run dev --workspace=apps/admin
+```
+
+---
+
+## Test Credentials
+
+> These are created by the seed script above.
+
+### Customer App — http://localhost:3000/auth/login
+
+| Name | Email | Password |
+|------|-------|----------|
+| Joy Kwamboka | `joy@example.com` | `joy123` |
+| Sarah Kipchoge | `sarah@example.com` | `sarah123` |
+
+### Admin App — http://localhost:3001/login
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@ecokuku.local` | `admin123` |
+| Staff | `staff@ecokuku.local` | `staff123` |
+
+---
+
+## Customer App Pages
+
+| Page | URL | Description |
+|------|-----|-------------|
+| Home | `/` | Hero, featured products, batch booking CTA |
+| Shop | `/shop` | Products with category filters |
+| Product Detail | `/shop/[id]` | Reviews, stock, add to cart |
+| Cart | `/cart` | Quantity control, promo codes |
+| Checkout | `/checkout` | Delivery form, M-PESA payment |
+| Orders | `/orders` | Order history |
+| Order Detail | `/orders/[id]` | Status timeline, items, totals |
+| Book a Batch | `/batches` | Available chick batches for rearing |
+| Batch Detail | `/batches/[id]` | Reserve chicks, pay deposit |
+| My Flock | `/my-flock` | Lifecycle tracker for booked batches |
+| Farm Journey | `/journey` | How the farm works |
+| About | `/about` | Farm story, values, contact form |
+| Account | `/account` | Profile, order history |
+
+---
+
+## Admin App Pages
+
+| Page | URL | Description |
+|------|-----|-------------|
+| Dashboard | `/dashboard` | Live metrics, recent orders, alerts |
+| Batches | `/batches` | Batch lifecycle management |
+| Batch Bookings | `/batch-bookings` | Customer pre-orders, status updates |
+| Incubation | `/incubation` | Hatchery and egg incubation logs |
+| Egg Production | `/eggs` | Daily egg collection records |
+| Feed | `/feed` | Feed stock and consumption |
+| Health | `/health` | Vaccination schedules and history |
+| Inventory | `/inventory` | Product stock levels |
+| Orders | `/orders` | Customer order management |
+| Logistics | `/logistics` | Deliveries and driver assignment |
+| Customers | `/customers` | Customer directory |
+| Reports | `/reports` | Sales analytics |
+| Settings | `/settings` | Farm info and preferences |
+
+---
+
+## Key Feature: Batch Booking & Lifecycle Tracking
+
+1. **Admin** opens a batch for booking via the Batches page (toggle `isOpenForBooking`, set `pricePerChick` and `maxBookings`)
+2. **Customer** browses `/batches`, selects a batch, and pays a 30% deposit via M-PESA
+3. **Admin** sees the booking on `/batch-bookings` and progresses its status: `CONFIRMED → GROWING → READY → COMPLETED`
+4. **Admin** logs vaccinations (`/health`) or growth measurements (`/batches/[id]`) — this automatically pushes an update to each customer's **My Flock** feed
+5. **Customer** checks `/my-flock` to see age in days, current weight, last vaccination, and a chronological updates feed
+
+---
+
+## Workspace Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start all apps in development mode |
+| `npm run build` | Build all apps for production |
+| `npm run lint` | Lint all packages |
+| `npm run db:push` | Sync Prisma schema with the database |
+| `npm run db:seed` | Seed the database with sample data |
+| `npm run db:studio` | Open Prisma Studio GUI |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 14 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Database | PostgreSQL + Prisma ORM |
+| Auth | NextAuth.js (JWT, role-based) |
+| State | Zustand (cart) |
+| Monorepo | Turborepo |
+| Payments | M-PESA Daraja API (STK Push) |
+| SMS | Africa's Talking |
+
+---
+
+## Environment Variables Reference
+
+| Variable | App | Description |
+|----------|-----|-------------|
+| `DATABASE_URL` | both | PostgreSQL connection string |
+| `NEXTAUTH_SECRET` | both | JWT signing secret (32+ chars) |
+| `NEXTAUTH_URL` | both | App origin URL |
+| `MPESA_CONSUMER_KEY` | web | Daraja API key |
+| `MPESA_CONSUMER_SECRET` | web | Daraja API secret |
+| `MPESA_BUSINESS_SHORT_CODE` | web | M-PESA business shortcode |
+| `MPESA_PASSKEY` | web | M-PESA passkey |
+| `MPESA_ENVIRONMENT` | web | `sandbox` or `production` |
+| `AFRICAS_TALKING_API_KEY` | web | SMS API key |
+| `AFRICAS_TALKING_USERNAME` | web | SMS account username |
+
+---
+
+## Troubleshooting
+
+**Port already in use**
+```bash
+# Kill whatever is on port 3000 or 3001
+kill $(lsof -ti :3000)
+kill $(lsof -ti :3001)
+```
+
+**Database connection error**
+```bash
+# Confirm PostgreSQL is running
+pg_isready -h localhost -p 5432
+
+# Re-push the schema
+DATABASE_URL="postgresql://postgres:password@localhost:5432/ecokuku_dev" \
+  npx prisma db push --schema packages/db/prisma/schema.prisma
+```
+
+**Prisma client out of date after schema changes**
+```bash
+DATABASE_URL="postgresql://postgres:password@localhost:5432/ecokuku_dev" \
+  npx prisma generate --schema packages/db/prisma/schema.prisma
+```
+
+**Clean reinstall**
+```bash
+rm -rf node_modules apps/web/node_modules apps/admin/node_modules packages/db/node_modules
+npm install
+```
+
+---
+
+**Last Updated**: June 2026

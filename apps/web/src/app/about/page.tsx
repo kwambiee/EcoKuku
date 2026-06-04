@@ -1,6 +1,7 @@
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { MapPin, Phone, Mail, Leaf, Heart, Eye } from 'lucide-react';
+import { ContactForm } from './ContactForm';
 
 export default function AboutPage() {
   return (
@@ -104,50 +105,7 @@ export default function AboutPage() {
               ))}
             </div>
 
-            {/* Contact form */}
-            <div className="bg-gray-50 rounded-2xl p-8">
-              <h3 className="font-bold text-lg mb-6">Send Us a Message</h3>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  const form = e.currentTarget;
-                  const data = new FormData(form);
-                  await fetch('/api/contact', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(Object.fromEntries(data)),
-                  });
-                  form.reset();
-                  alert('Message sent! We\'ll get back to you soon.');
-                }}
-                className="space-y-4"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                    <input name="name" required type="text"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:outline-none text-sm"
-                      placeholder="Your name" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input name="email" required type="email"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:outline-none text-sm"
-                      placeholder="your@email.com" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                  <textarea name="message" required rows={4}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:outline-none text-sm resize-none"
-                    placeholder="How can we help?" />
-                </div>
-                <button type="submit"
-                  className="w-full py-3 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors">
-                  Send Message
-                </button>
-              </form>
-            </div>
+            <ContactForm />
           </div>
         </div>
       </main>
