@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Badge, formatCurrency } from '@ecokuku/ui';
 import { toast } from 'sonner';
@@ -43,7 +43,6 @@ export default function EggsPage() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [dailyChart, setDailyChart] = useState<any[]>([]);
-  const [weeklyChart, setWeeklyChart] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEgg, setSelectedEgg] = useState<EggProduction | null>(null);
@@ -60,6 +59,28 @@ export default function EggsPage() {
   const [formData, setFormData] = useState(emptyForm);
   const [editData, setEditData] = useState(emptyForm);
 
+  const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const toLocalDateStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const weekSparkData = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dow = today.getDay();
+    const mondayOffset = dow === 0 ? 6 : dow - 1;
+    const monday = new Date(today.getTime() - mondayOffset * 86400000);
+
+    const days = DAY_NAMES.map((name, i) => {
+      const date = new Date(monday.getTime() + i * 86400000);
+      const dateStr = toLocalDateStr(date);
+      const dayRecords = eggs.filter((e) => e.date.substring(0, 10) === dateStr);
+      const collected = dayRecords.reduce((s, e) => s + e.collected, 0);
+      const damaged = dayRecords.reduce((s, e) => s + (e.broken || 0) + (e.cracked || 0), 0);
+      const isToday = date.getTime() === today.getTime();
+      const isFuture = date.getTime() > today.getTime();
+      return { day: name, good: collected - damaged, bad: damaged, isToday, isFuture };
+    });
+    return days;
+  }, [eggs]);
+
   const fetchAll = async () => {
     setIsLoading(true);
     try {
@@ -74,7 +95,6 @@ export default function EggsPage() {
       setEggs(eggsData.data || []);
       setStats(eggsData.stats || null);
       setDailyChart(eggsData.charts?.daily || []);
-      setWeeklyChart(eggsData.charts?.weekly || []);
       setBatches((batchData.data || []).map((b: any) => ({ id: b.id, batchNumber: b.batchNumber })));
     } catch {
       toast.error('Failed to load egg data');
@@ -306,75 +326,90 @@ export default function EggsPage() {
 
           {/* Charts */}
           {showCharts && (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-              {/* Daily Collection Line Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* Line Chart — 30 day trend */}
               {dailyChart.length > 1 && (
-                <div className="lg:col-span-3 bg-white rounded-xl border p-5">
-                  <h3 className="font-bold text-sm mb-3">Daily collection — last 30 days</h3>
-                  <ResponsiveContainer width="100%" height={220}>
+                <div className="bg-white rounded-xl border p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="font-bold text-sm">Egg production trend</h3>
+                      <p className="text-xs text-gray-400">Last 30 days</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="w-3 h-1 rounded bg-gray-800 inline-block" /> Total</span>
+                      <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="w-3 h-1 rounded bg-green-500 inline-block" /> Good</span>
+                      <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="w-3 h-1 rounded bg-red-400 inline-block" /> Bad</span>
+                    </div>
+                  </div>
+                  <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={dailyChart}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="day" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="collected" name="Collected" stroke="#16a34a" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="good" name="Good" stroke="#2563eb" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                      <XAxis dataKey="day" tick={{ fontSize: 10 }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }}
+                        formatter={(v: number, name: string) => [v.toLocaleString(), name]}
+                      />
+                      <Line type="monotone" dataKey="collected" name="Total collected" stroke="#1f2937" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="good" name="Good eggs" stroke="#22c55e" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="damaged" name="Broken + cracked" stroke="#f87171" strokeWidth={1.5} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               )}
 
-              {/* This Week Sparkbar */}
-              <div className="lg:col-span-2 bg-white rounded-xl border p-5">
-                <h3 className="font-bold text-sm mb-3">This week</h3>
-                {dailyChart.length > 0 ? (
+              {/* Bar Chart — This week daily breakdown */}
+              <div className="bg-white rounded-xl border p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-bold text-sm">This week</h3>
+                    <p className="text-xs text-gray-400">Daily good vs broken eggs (Mon–Sun)</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="w-3 h-3 rounded bg-green-500 inline-block" /> Good</span>
+                    <span className="flex items-center gap-1.5 text-xs text-gray-600"><span className="w-3 h-3 rounded bg-red-400 inline-block" /> Bad</span>
+                  </div>
+                </div>
+                {weekSparkData.some((d) => d.good > 0 || d.bad > 0) ? (
                   <>
-                    <div className="flex items-end gap-2 mb-4" style={{ height: 140 }}>
-                      {dailyChart.slice(-7).map((d, i, arr) => {
-                        const maxVal = Math.max(...arr.map((dd) => dd.collected), 1);
-                        const pct = d.collected > 0 ? Math.max(10, (d.collected / maxVal) * 100) : 4;
-                        const isLast = i === arr.length - 1;
-                        return (
-                          <div key={d.day} className="flex-1 flex flex-col items-center justify-end gap-0.5 h-full">
-                            {d.collected > 0 && (
-                              <span className={`text-[9px] font-semibold ${isLast ? 'text-green-800' : 'text-gray-500'}`}>
-                                {d.collected.toLocaleString()}
-                              </span>
-                            )}
-                            <div className={`w-full rounded-sm ${d.collected === 0 ? 'bg-gray-200' : isLast ? 'bg-green-700' : 'bg-green-300'}`} style={{ height: `${pct}%` }} />
-                            <span className={`text-[9px] ${isLast ? 'font-bold text-green-800' : 'text-gray-400'}`}>{d.day.split(' ')[0]}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="flex items-center justify-between pt-3 border-t">
-                      <div><p className="text-xs text-gray-500">Week total</p><p className="text-lg font-bold">{dailyChart.slice(-7).reduce((ss, d) => ss + d.collected, 0).toLocaleString()}</p></div>
-                      <div className="text-right"><p className="text-xs text-gray-500">Daily avg</p><p className="text-lg font-bold">{s ? s.dailyAvg7d.toLocaleString() : '—'}</p></div>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={weekSparkData} barGap={2} barCategoryGap="25%">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                        <XAxis
+                          dataKey="day"
+                          tick={{ fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(val: string, i: number) => weekSparkData[i]?.isToday ? `${val} ★` : val}
+                        />
+                        <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }}
+                          formatter={(v: number, name: string) => [v.toLocaleString(), name]}
+                        />
+                        <Bar dataKey="good" name="Good eggs" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="bad" name="Broken + cracked" fill="#f87171" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="flex items-center justify-between pt-3 mt-2 border-t text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500">Good total</p>
+                        <p className="font-bold text-green-700">{weekSparkData.reduce((ss, d) => ss + d.good, 0).toLocaleString()}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-gray-500">Broken total</p>
+                        <p className="font-bold text-red-500">{weekSparkData.reduce((ss, d) => ss + d.bad, 0).toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">Daily avg</p>
+                        <p className="font-bold">{s ? s.dailyAvg7d.toLocaleString() : '—'}</p>
+                      </div>
                     </div>
                   </>
                 ) : (
-                  <div className="py-8 text-center text-gray-400 text-sm">No data this week</div>
+                  <div className="py-12 text-center text-gray-400 text-sm">No egg collections logged this week</div>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* Good vs Broken Weekly Bar Chart */}
-          {weeklyChart.length > 1 && showCharts && (
-            <div className="bg-white rounded-xl border p-5">
-              <h3 className="font-bold text-sm mb-1">Weekly egg breakdown</h3>
-              <p className="text-xs text-gray-400 mb-3">Green = good eggs, Red = broken + cracked. Stacked per week.</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={weeklyChart}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v: number, name: string) => [v.toLocaleString(), name]} />
-                  <Legend />
-                  <Bar dataKey="good" name="Good eggs" stackId="a" fill="#16a34a" />
-                  <Bar dataKey="broken" name="Broken / cracked" stackId="a" fill="#dc2626" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
             </div>
           )}
 

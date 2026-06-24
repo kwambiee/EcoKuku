@@ -3,13 +3,15 @@ import { getServerSession } from 'next-auth/next';
 import { db } from '@ecokuku/db';
 import { adminAuthOptions } from '@/lib/auth';
 
-// GET: all feed types with their current stock levels + recent consumption + recent purchases
 export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(adminAuthOptions);
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const [feedTypes, recentLogs, recentPurchases] = await Promise.all([
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [feedTypes, recentLogs, recentPurchases, monthExpenses, totalExpensesMonth, activeBatches] = await Promise.all([
       db.feedType.findMany({
         include: { stock: true },
         orderBy: { name: 'asc' },
@@ -17,15 +19,27 @@ export async function GET(_request: NextRequest) {
       db.feedLog.findMany({
         orderBy: { recordedDate: 'desc' },
         take: 50,
+        include: { batch: { select: { id: true, batchNumber: true } } },
       }),
       db.feedPurchase.findMany({
         include: { feedType: true },
         orderBy: { date: 'desc' },
         take: 20,
       }),
+      db.expense.aggregate({
+        where: { category: 'FEED', date: { gte: monthStart } },
+        _sum: { amount: true },
+      }),
+      db.expense.aggregate({
+        where: { date: { gte: monthStart } },
+        _sum: { amount: true },
+      }),
+      db.batch.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, currentCount: true },
+      }),
     ]);
 
-    // Compute daily average consumption per feed type (last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
     const recentByType: Record<string, number[]> = {};
     for (const log of recentLogs) {
@@ -52,18 +66,46 @@ export async function GET(_request: NextRequest) {
         unit: ft.stock[0]?.unit || 'kg',
         dailyAvgConsumption: Math.round(dailyAvg * 10) / 10,
         daysRemaining,
-        isLow: daysRemaining !== null && daysRemaining < 7,
+        isCritical: daysRemaining !== null && daysRemaining <= 3,
+        isLow: daysRemaining !== null && daysRemaining <= 7,
       };
     });
 
-    return NextResponse.json({ inventory, recentLogs, recentPurchases });
+    const totalBirds = activeBatches.reduce((s, b) => s + b.currentCount, 0);
+    const feedCostMonth = Number(monthExpenses._sum.amount || 0);
+    const totalExpenses = Number(totalExpensesMonth._sum.amount || 0);
+    const feedPct = totalExpenses > 0 ? Math.round((feedCostMonth / totalExpenses) * 100) : 0;
+    const totalDailyUsage = inventory.reduce((s, f) => s + f.dailyAvgConsumption, 0);
+    const costPerBirdDay = totalBirds > 0 && totalDailyUsage > 0
+      ? (() => {
+          const avgPricePerKg = feedCostMonth > 0 && totalDailyUsage > 0
+            ? feedCostMonth / (totalDailyUsage * new Date().getDate())
+            : 0;
+          return avgPricePerKg > 0 ? Math.round((avgPricePerKg * totalDailyUsage / totalBirds) * 100) / 100 : null;
+        })()
+      : null;
+    return NextResponse.json({
+      inventory,
+      recentLogs: recentLogs.map((l) => ({
+        ...l,
+        quantityUsed: Number(l.quantityUsed),
+        quantityRemaining: l.quantityRemaining ? Number(l.quantityRemaining) : null,
+      })),
+      recentPurchases,
+      stats: {
+        feedCostMonth,
+        feedPct,
+        totalBirds,
+        costPerBirdDay,
+        totalDailyUsage,
+      },
+    });
   } catch (error) {
     console.error('Feed GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch feed data' }, { status: 500 });
   }
 }
 
-// POST: create feed type, restock, log consumption, or record purchase
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(adminAuthOptions);
@@ -91,7 +133,6 @@ export async function POST(request: NextRequest) {
       const { feedTypeId, quantity, unit, supplier } = body;
       if (!feedTypeId || !quantity) return NextResponse.json({ error: 'feedTypeId and quantity required' }, { status: 400 });
 
-      // Get existing stock record
       const existing = await db.feedStock.findFirst({ where: { feedTypeId } });
       if (existing) {
         await db.feedStock.update({
@@ -126,11 +167,9 @@ export async function POST(request: NextRequest) {
       const transport = parseFloat(transportCost || '0');
       const total = price + transport;
 
-      // Get the feed type name for the expense description
       const feedType = await db.feedType.findUnique({ where: { id: feedTypeId } });
       if (!feedType) return NextResponse.json({ error: 'Feed type not found' }, { status: 404 });
 
-      // Create the purchase record
       const purchase = await db.feedPurchase.create({
         data: {
           feedTypeId,
@@ -147,7 +186,6 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Increment FeedStock quantity (same as restock logic)
       const existingStock = await db.feedStock.findFirst({ where: { feedTypeId } });
       if (existingStock) {
         await db.feedStock.update({
@@ -160,10 +198,8 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Update supplier on feed type
       await db.feedType.update({ where: { id: feedTypeId }, data: { supplier: supplierName } });
 
-      // Auto-create an Expense record
       const description = `Feed purchase: ${qty}kg ${feedType.name} from ${supplierName}`;
       await db.expense.create({
         data: {
@@ -181,10 +217,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'log_consumption') {
-      const { feedTypeName, quantityUsed, batchId, notes } = body;
+      const { feedTypeName, quantityUsed, batchId, notes, date } = body;
       if (!feedTypeName || !quantityUsed) return NextResponse.json({ error: 'feedTypeName and quantityUsed required' }, { status: 400 });
 
-      // Deduct from stock
       const feedType = await db.feedType.findFirst({ where: { name: feedTypeName }, include: { stock: true } });
       if (feedType?.stock[0]) {
         const newQty = Math.max(0, Number(feedType.stock[0].quantity) - parseFloat(quantityUsed));
@@ -201,7 +236,7 @@ export async function POST(request: NextRequest) {
           quantityRemaining: feedType?.stock[0] ? Math.max(0, Number(feedType.stock[0].quantity) - parseFloat(quantityUsed)) : null,
           batchId: batchId || null,
           notes: notes || null,
-          recordedDate: new Date(),
+          recordedDate: date ? new Date(date) : new Date(),
         },
       });
 

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
-import { Button, Badge } from '@ecokuku/ui';
-import { Plus, Syringe, Calendar, CheckCircle, Clock, AlertTriangle, Info, X } from 'lucide-react';
+import { Badge } from '@ecokuku/ui';
+import { Plus, Syringe, Calendar, CheckCircle, Clock, AlertTriangle, Info, X, Stethoscope, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Batch {
   id: string;
@@ -79,6 +80,50 @@ const VACCINE_TYPES = [
   'Salmonella',
   'Avian Influenza (AI)',
   'Other',
+];
+
+interface HealthEvent {
+  id: string;
+  batchId: string;
+  type: string;
+  date: string;
+  disease?: string;
+  symptoms?: string;
+  diagnosis?: string;
+  treatment?: string;
+  dosage?: string;
+  duration?: string;
+  withdrawalPeriod?: number;
+  withdrawalEnds?: string;
+  outcome?: string;
+  vetName?: string;
+  cost?: number;
+  notes?: string;
+  batch?: { id: string; batchNumber: string; type: string };
+}
+
+const EVENT_TYPES = [
+  { value: 'disease', label: 'Disease / Illness' },
+  { value: 'injury', label: 'Injury' },
+  { value: 'treatment', label: 'Preventive Treatment' },
+  { value: 'vet_visit', label: 'Vet Visit / Consultation' },
+];
+
+const OUTCOMES = ['ONGOING', 'RECOVERING', 'RECOVERED', 'MORTALITY'];
+
+const OUTCOME_STYLES: Record<string, string> = {
+  ONGOING: 'bg-red-100 text-red-700',
+  RECOVERING: 'bg-amber-100 text-amber-700',
+  RECOVERED: 'bg-green-100 text-green-700',
+  MORTALITY: 'bg-gray-100 text-gray-700',
+};
+
+const COMMON_DISEASES = [
+  'Newcastle Disease', 'Coccidiosis', 'Fowl Pox', 'Infectious Bronchitis',
+  'Gumboro / IBD', 'Fowl Typhoid', 'Chronic Respiratory Disease (CRD)',
+  'E. coli Infection', 'Mycoplasma', 'Avian Influenza',
+  'Worms / Internal Parasites', 'Mites / External Parasites',
+  'Egg Drop Syndrome', 'Bumblefoot', 'Other',
 ];
 
 type CellStatus = 'done' | 'overdue' | 'due' | 'upcoming';
@@ -168,10 +213,85 @@ export default function HealthPage() {
     cost: '',
   });
 
+  // Disease & treatment state
+  const [healthEvents, setHealthEvents] = useState<HealthEvent[]>([]);
+  const [activeWithdrawals, setActiveWithdrawals] = useState<HealthEvent[]>([]);
+  const [healthStats, setHealthStats] = useState<{ activeIssues: number; activeWithdrawals: number; mortalityFromDisease: number } | null>(null);
+  const [showDiseaseForm, setShowDiseaseForm] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<HealthEvent | null>(null);
+  const [showMatrix, setShowMatrix] = useState(true);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
+  const [showDiseaseLog, setShowDiseaseLog] = useState(true);
+
+  const emptyDiseaseForm = {
+    batchId: '', type: 'disease', date: new Date().toISOString().split('T')[0],
+    disease: '', symptoms: '', diagnosis: '', treatment: '', dosage: '',
+    duration: '', withdrawalPeriod: '', outcome: 'ONGOING', vetName: '', cost: '', notes: '',
+  };
+  const [diseaseForm, setDiseaseForm] = useState(emptyDiseaseForm);
+
   useEffect(() => {
     fetchLogs();
     fetchBatches();
+    fetchHealthEvents();
   }, []);
+
+  const fetchHealthEvents = async () => {
+    try {
+      const res = await fetch('/api/health-events?limit=50');
+      const data = await res.json();
+      setHealthEvents(data.data || []);
+      setActiveWithdrawals(data.activeWithdrawals || []);
+      setHealthStats(data.stats || null);
+    } catch {
+      console.error('Failed to load health events');
+    }
+  };
+
+  const handleDiseaseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/health-events', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(diseaseForm),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+      toast.success('Health event logged');
+      setDiseaseForm(emptyDiseaseForm);
+      setShowDiseaseForm(false);
+      fetchHealthEvents();
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed'); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const handleUpdateOutcome = async (eventId: string, outcome: string) => {
+    try {
+      const res = await fetch('/api/health-events', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, outcome }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      toast.success(`Outcome updated to ${outcome}`);
+      setShowUpdateModal(false);
+      setSelectedEvent(null);
+      fetchHealthEvents();
+    } catch { toast.error('Failed to update'); }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!confirm('Delete this health event?')) return;
+    try {
+      await fetch('/api/health-events', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId }),
+      });
+      toast.success('Deleted');
+      fetchHealthEvents();
+    } catch { toast.error('Failed to delete'); }
+  };
 
   const fetchLogs = async () => {
     setIsLoading(true);
@@ -309,14 +429,21 @@ export default function HealthPage() {
       <Sidebar />
       <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
         <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center flex-wrap gap-3">
             <div>
-              <h1 className="text-3xl font-bold">Health & Vaccination</h1>
-              <p className="text-gray-600 mt-1">Track vaccinations and health events per batch</p>
+              <h1 className="text-2xl font-bold">Health & Vaccination</h1>
+              <p className="text-gray-500 text-sm mt-1">Vaccination matrix, disease tracking and treatment logs</p>
             </div>
-            <Button onClick={() => { setShowForm(true); setError(''); setSuccess(''); }} className="flex items-center gap-2 bg-green-800 text-white hover:bg-green-700">
-              <Plus size={18} /> Log Vaccination
-            </Button>
+            <div className="flex gap-2">
+              <button onClick={() => { setShowDiseaseForm(true); setDiseaseForm(emptyDiseaseForm); }}
+                className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
+                <Stethoscope size={15} /> Log Disease / Treatment
+              </button>
+              <button onClick={() => { setShowForm(true); setError(''); setSuccess(''); }}
+                className="flex items-center gap-2 px-4 py-2.5 bg-green-800 text-white rounded-lg text-sm font-medium hover:bg-green-700">
+                <Syringe size={15} /> Log Vaccination
+              </button>
+            </div>
           </div>
         </div>
 
@@ -331,12 +458,20 @@ export default function HealthPage() {
           {/* Vaccination Matrix */}
           {batches.length > 0 && (
             <div className="bg-white rounded-lg border border-gray-200">
-              <div className="p-5 border-b border-gray-200">
-                <h2 className="font-bold text-lg flex items-center gap-2">
-                  <Syringe size={20} className="text-green-700" /> Vaccination Matrix
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">Click any cell for supplement/vitamin guidance</p>
-                <div className="flex flex-wrap gap-4 mt-3 text-xs">
+              <button onClick={() => setShowMatrix(!showMatrix)}
+                className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-2">
+                  <Syringe size={20} className="text-green-700" />
+                  <h2 className="font-bold text-lg">Vaccination Matrix</h2>
+                  <span className="text-xs text-gray-400">{batches.length} active batches</span>
+                </div>
+                {showMatrix ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+              </button>
+              {showMatrix && (
+              <>
+              <div className="px-5 pb-3 border-b border-gray-200">
+                <p className="text-sm text-gray-500">Click any cell for supplement/vitamin guidance</p>
+                <div className="flex flex-wrap gap-4 mt-2 text-xs">
                   <span className="flex items-center gap-1.5">
                     <span className="inline-block w-3 h-3 rounded bg-green-100 border border-green-300" />
                     Administered
@@ -420,18 +555,23 @@ export default function HealthPage() {
                   </tbody>
                 </table>
               </div>
+              </>
+              )}
             </div>
           )}
 
           {/* Standard Vaccine Schedule Reference */}
           <div className="bg-white rounded-lg border border-gray-200">
-            <div className="p-5 border-b border-gray-200">
-              <h2 className="font-bold text-lg flex items-center gap-2">
-                <Calendar size={20} className="text-green-700" /> Standard Vaccination Schedule
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">Reference guide for poultry vaccination timing</p>
-            </div>
-            <div className="overflow-x-auto">
+            <button onClick={() => setShowSchedule(!showSchedule)}
+              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+              <div className="flex items-center gap-2">
+                <Calendar size={20} className="text-green-700" />
+                <h2 className="font-bold text-lg">Standard Vaccination Schedule</h2>
+              </div>
+              {showSchedule ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+            </button>
+            {showSchedule && (
+            <div className="overflow-x-auto border-t border-gray-200">
               <table className="w-full">
                 <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                   <tr>
@@ -455,16 +595,22 @@ export default function HealthPage() {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
 
           {/* Vaccination History */}
           <div className="bg-white rounded-lg border border-gray-200">
-            <div className="p-5 border-b border-gray-200">
-              <h2 className="font-bold text-lg flex items-center gap-2">
-                <Syringe size={20} className="text-green-700" /> Vaccination History
-              </h2>
-            </div>
-            <div className="overflow-x-auto">
+            <button onClick={() => setShowHistory(!showHistory)}
+              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
+              <div className="flex items-center gap-2">
+                <Syringe size={20} className="text-green-700" />
+                <h2 className="font-bold text-lg">Vaccination History</h2>
+                {logs.length > 0 && <span className="text-xs text-gray-400">{logs.length} records</span>}
+              </div>
+              {showHistory ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+            </button>
+            {showHistory && (
+            <div className="overflow-x-auto border-t border-gray-200">
               <table className="w-full">
                 <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                   <tr>
@@ -500,8 +646,313 @@ export default function HealthPage() {
                 </tbody>
               </table>
             </div>
+            )}
+          </div>
+
+          {/* ===== DISEASE & TREATMENT LOG ===== */}
+
+          {/* Active Withdrawal Warnings */}
+          {activeWithdrawals.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldAlert size={18} className="text-red-600" />
+                <span className="font-semibold text-red-900">Active Withdrawal Periods</span>
+              </div>
+              <div className="space-y-1">
+                {activeWithdrawals.map((w) => {
+                  const endsDate = w.withdrawalEnds ? new Date(w.withdrawalEnds) : null;
+                  const daysLeft = endsDate ? Math.ceil((endsDate.getTime() - Date.now()) / 86400000) : 0;
+                  return (
+                    <div key={w.id} className="flex items-center justify-between text-sm">
+                      <span className="text-red-800">
+                        <strong>{w.batch?.batchNumber}</strong> — {w.disease || w.symptoms} treated with {w.treatment || 'medication'}
+                      </span>
+                      <span className="text-red-700 font-medium">
+                        {daysLeft > 0 ? `${daysLeft} days left` : 'Ends today'} · No eggs/meat until {endsDate?.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Disease & Treatment Log Table */}
+          <div className="bg-white rounded-lg border border-gray-200">
+            <div className="p-5 flex items-center justify-between">
+              <button onClick={() => setShowDiseaseLog(!showDiseaseLog)}
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Stethoscope size={20} className="text-red-700" />
+                <h2 className="font-bold text-lg">Disease & Treatment Log</h2>
+                {healthStats && healthStats.activeIssues > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">{healthStats.activeIssues} active</span>
+                )}
+                {showDiseaseLog ? <ChevronUp size={18} className="text-gray-400 ml-1" /> : <ChevronDown size={18} className="text-gray-400 ml-1" />}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setShowDiseaseForm(true); setDiseaseForm(emptyDiseaseForm); }}
+                className="text-sm text-green-700 font-medium hover:underline flex items-center gap-1">
+                <Plus size={14} /> Log event
+              </button>
+            </div>
+            {showDiseaseLog && healthEvents.length === 0 ? (
+              <div className="p-8 text-center text-gray-400 text-sm border-t">No disease or treatment events logged yet</div>
+            ) : showDiseaseLog && (
+              <div className="overflow-x-auto border-t border-gray-200">
+                <table className="w-full">
+                  <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Date</th>
+                      <th className="px-4 py-3 text-left">Batch</th>
+                      <th className="px-4 py-3 text-left">Disease / Symptoms</th>
+                      <th className="px-4 py-3 text-left">Diagnosis</th>
+                      <th className="px-4 py-3 text-left">Treatment</th>
+                      <th className="px-4 py-3 text-left">Withdrawal</th>
+                      <th className="px-4 py-3 text-left">Outcome</th>
+                      <th className="px-4 py-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {healthEvents.map((ev) => {
+                      const hasActiveWithdrawal = ev.withdrawalEnds && new Date(ev.withdrawalEnds) > new Date();
+                      return (
+                        <tr key={ev.id} className={`hover:bg-gray-50 ${hasActiveWithdrawal ? 'bg-red-50/30' : ''}`}>
+                          <td className="px-4 py-3 text-sm">{new Date(ev.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</td>
+                          <td className="px-4 py-3 text-sm font-medium">{ev.batch?.batchNumber || '—'}</td>
+                          <td className="px-4 py-3 text-sm">
+                            {ev.disease && <span className="font-medium text-gray-900">{ev.disease}</span>}
+                            {ev.disease && ev.symptoms && <br />}
+                            {ev.symptoms && <span className="text-gray-500 text-xs">{ev.symptoms}</span>}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {ev.diagnosis || <span className="text-gray-300">—</span>}
+                            {ev.vetName && <span className="block text-[11px] text-gray-400">Vet: {ev.vetName}</span>}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {ev.treatment && <span className="text-gray-800">{ev.treatment}</span>}
+                            {ev.dosage && <span className="block text-[11px] text-gray-400">{ev.dosage}</span>}
+                            {ev.duration && <span className="block text-[11px] text-gray-400">Duration: {ev.duration}</span>}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {ev.withdrawalPeriod ? (
+                              <span className={hasActiveWithdrawal ? 'text-red-700 font-semibold' : 'text-gray-500'}>
+                                {ev.withdrawalPeriod}d
+                                {hasActiveWithdrawal && (
+                                  <span className="block text-[11px]">until {new Date(ev.withdrawalEnds!).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</span>
+                                )}
+                              </span>
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${OUTCOME_STYLES[ev.outcome || 'ONGOING'] || 'bg-gray-100 text-gray-600'}`}>
+                              {ev.outcome || 'ONGOING'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button onClick={() => { setSelectedEvent(ev); setShowUpdateModal(true); }}
+                                className="text-xs px-2 py-1 border rounded hover:bg-gray-50">Update</button>
+                              <button onClick={() => handleDeleteEvent(ev.id)}
+                                className="text-xs px-2 py-1 text-red-500 hover:text-red-700">✕</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Update Outcome Modal */}
+        {showUpdateModal && selectedEvent && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+              <div className="p-5 border-b flex justify-between">
+                <h2 className="font-bold text-lg">Update Outcome</h2>
+                <button onClick={() => setShowUpdateModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+              </div>
+              <div className="p-5">
+                <p className="text-sm text-gray-600 mb-1">{selectedEvent.disease || selectedEvent.symptoms}</p>
+                <p className="text-xs text-gray-400 mb-4">{selectedEvent.batch?.batchNumber} — logged {new Date(selectedEvent.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</p>
+                <div className="space-y-2">
+                  {OUTCOMES.map((o) => (
+                    <button key={o} onClick={() => handleUpdateOutcome(selectedEvent.id, o)}
+                      className={`w-full text-left px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${selectedEvent.outcome === o ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                      <span className={`inline-block w-2 h-2 rounded-full mr-2 ${o === 'RECOVERED' ? 'bg-green-500' : o === 'RECOVERING' ? 'bg-amber-500' : o === 'ONGOING' ? 'bg-red-500' : 'bg-gray-400'}`} />
+                      {o.charAt(0) + o.slice(1).toLowerCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Log Disease / Treatment Modal */}
+        {showDiseaseForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="p-5 border-b flex justify-between sticky top-0 bg-white rounded-t-xl">
+                <h2 className="font-bold text-xl">Log Disease / Treatment</h2>
+                <button onClick={() => setShowDiseaseForm(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+              </div>
+              <form onSubmit={handleDiseaseSubmit} className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
+                    <input type="date" required value={diseaseForm.date}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, date: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Batch Affected *</label>
+                    <select required value={diseaseForm.batchId}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, batchId: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      <option value="">Select batch...</option>
+                      {batches.map((b) => <option key={b.id} value={b.id}>{b.batchNumber} — {b.type} ({b.currentCount} birds)</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Event Type</label>
+                    <select value={diseaseForm.type}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, type: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      {EVENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Disease / Condition</label>
+                    <select value={diseaseForm.disease}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, disease: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      <option value="">Select or type below...</option>
+                      {COMMON_DISEASES.map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Symptoms Observed *</label>
+                  <textarea required rows={2} value={diseaseForm.symptoms}
+                    onChange={(e) => setDiseaseForm({ ...diseaseForm, symptoms: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="e.g. Watery droppings, loss of appetite, drooping wings, respiratory distress..." />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Diagnosis <span className="font-normal text-gray-400">(if vet consulted)</span></label>
+                  <input type="text" value={diseaseForm.diagnosis}
+                    onChange={(e) => setDiseaseForm({ ...diseaseForm, diagnosis: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="e.g. Confirmed coccidiosis via lab test" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Treatment Given</label>
+                    <input type="text" value={diseaseForm.treatment}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, treatment: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="e.g. Amprolium in water" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Dosage</label>
+                    <input type="text" value={diseaseForm.dosage}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, dosage: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="e.g. 10ml per litre of water" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Duration</label>
+                    <input type="text" value={diseaseForm.duration}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, duration: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="e.g. 5 days" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Withdrawal (days)
+                      <Info size={12} className="inline ml-1 text-gray-400" />
+                    </label>
+                    <input type="number" min="0" value={diseaseForm.withdrawalPeriod}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, withdrawalPeriod: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="e.g. 7" />
+                    <p className="text-[11px] text-gray-400 mt-0.5">No eggs/meat during this period</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Outcome</label>
+                    <select value={diseaseForm.outcome}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, outcome: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      {OUTCOMES.map((o) => <option key={o} value={o}>{o.charAt(0) + o.slice(1).toLowerCase()}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {diseaseForm.withdrawalPeriod && parseInt(diseaseForm.withdrawalPeriod) > 0 && diseaseForm.date && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                    <ShieldAlert size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-800">
+                      Withdrawal period: <strong>{diseaseForm.withdrawalPeriod} days</strong>.
+                      No eggs or meat from this batch until{' '}
+                      <strong>
+                        {new Date(new Date(diseaseForm.date).getTime() + parseInt(diseaseForm.withdrawalPeriod) * 86400000)
+                          .toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </strong>.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Vet Name</label>
+                    <input type="text" value={diseaseForm.vetName}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, vetName: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Vet / consultant name" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Treatment Cost (KSh)</label>
+                    <input type="number" step="0.01" value={diseaseForm.cost}
+                      onChange={(e) => setDiseaseForm({ ...diseaseForm, cost: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="0" />
+                    <p className="text-[11px] text-gray-400 mt-0.5">Auto-creates expense record</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Additional Notes</label>
+                  <textarea value={diseaseForm.notes} rows={2}
+                    onChange={(e) => setDiseaseForm({ ...diseaseForm, notes: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Number of birds affected, mortality count, observations..." />
+                </div>
+
+                <div className="flex gap-3">
+                  <button type="submit" disabled={isSubmitting}
+                    className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50">
+                    {isSubmitting ? 'Saving...' : 'Log Health Event'}
+                  </button>
+                  <button type="button" onClick={() => setShowDiseaseForm(false)}
+                    className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Vaccine Cell Info Modal (replaces inline tooltip) */}
         {activeTooltip && tooltipCell && tooltipBatch && (
