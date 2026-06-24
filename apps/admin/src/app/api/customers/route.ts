@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
           orders: {
             select: {
               id: true,
-              totalPrice: true,
+              total: true,
               status: true,
               createdAt: true,
             },

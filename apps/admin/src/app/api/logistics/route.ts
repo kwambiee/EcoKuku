@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { db } from '@ecokuku/db';
 import { adminAuthOptions } from '@/lib/auth';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(adminAuthOptions);
     if (!session?.user?.id) {

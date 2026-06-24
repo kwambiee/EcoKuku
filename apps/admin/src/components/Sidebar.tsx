@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   ClipboardList,
+  Receipt,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -27,12 +28,13 @@ const navItems = [
   { label: 'Egg Production', href: '/eggs', icon: Egg },
   { label: 'Feed', href: '/feed', icon: Leaf },
   { label: 'Health', href: '/health', icon: Stethoscope },
-  { label: 'Inventory', href: '/inventory', icon: Package },
+  { label: 'Products & Inventory', href: '/products', icon: Package },
   { label: 'Orders', href: '/orders', icon: ShoppingCart },
   { label: 'Batch Bookings', href: '/batch-bookings', icon: ClipboardList },
   { label: 'Logistics', href: '/logistics', icon: Truck },
   { label: 'Customers', href: '/customers', icon: Users },
   { label: 'Reports', href: '/reports', icon: BarChart3 },
+  { label: 'Expenses', href: '/expenses', icon: Receipt },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
 

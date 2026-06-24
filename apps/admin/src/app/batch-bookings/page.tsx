@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { Sidebar } from '@/components/Sidebar';
 import { formatDate } from '@ecokuku/ui';
+import { toast } from 'sonner';
 import { Users, ChevronDown, CheckCircle, Clock, Truck, Package, X, Send } from 'lucide-react';
 
 interface BatchOrder {
@@ -89,10 +91,13 @@ export default function BatchBookingsPage() {
         }),
       });
       if (res.ok) {
+        toast.success('Booking updated and customer notified');
         setModalOrder(null);
         setUpdateMsg('');
         setNewStatus('');
         fetchOrders();
+      } else {
+        toast.error('Failed to update booking');
       }
     } finally {
       setUpdating(null);
@@ -107,13 +112,14 @@ export default function BatchBookingsPage() {
   };
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Batch Bookings</h1>
-          <p className="text-gray-600 mt-1">Customer pre-orders for chick rearing</p>
-        </div>
+    <div className="flex">
+      <Sidebar />
+      <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
+      <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0">
+        <h1 className="text-3xl font-bold">Batch Bookings</h1>
+        <p className="text-gray-600 mt-1">Customer pre-orders for chick rearing — manage status and send updates</p>
       </div>
+      <div className="p-6">
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -268,6 +274,8 @@ export default function BatchBookingsPage() {
           </div>
         </div>
       )}
+      </div>
+      </main>
     </div>
   );
 }

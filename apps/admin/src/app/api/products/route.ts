@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       stock,
       available,
       wholesalePrice,
+      image,
     } = body;
 
     if (!name || !price || !type || !category || !description) {
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
         category,
         stock: stock || 0,
         available: available !== false,
+        image: image || null,
       },
     });
 

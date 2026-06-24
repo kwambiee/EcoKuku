@@ -1,29 +1,25 @@
 import { withAuth } from 'next-auth/middleware';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export const middleware = withAuth(
+export default withAuth(
   function middleware(request: NextRequest & { nextauth: any }) {
     const token = request.nextauth.token;
 
-    // Admin routes require ADMIN or STAFF role
-    if (request.nextUrl.pathname.startsWith('/')) {
-      if (!token) {
-        return null; // withAuth will redirect to login
-      }
-
-      if (token.role !== 'ADMIN' && token.role !== 'STAFF') {
-        // Redirect non-admin users to login
-        const loginUrl = new URL('/login', request.url);
-        loginUrl.searchParams.set('callbackUrl', request.url);
-        return Response.redirect(loginUrl);
-      }
+    if (!token) {
+      return NextResponse.redirect(new URL('/login', request.url));
     }
+
+    if (token.role !== 'ADMIN' && token.role !== 'STAFF') {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('error', 'AccessDenied');
+      return NextResponse.redirect(loginUrl);
+    }
+
+    return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token }) => {
-        return !!token;
-      },
+      authorized: ({ token }) => !!token,
     },
     pages: {
       signIn: '/login',

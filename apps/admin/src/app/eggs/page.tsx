@@ -2,476 +2,497 @@
 
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
-import { Button, Card } from '@ecokuku/ui';
-import { Plus, TrendingUp, Edit, Trash2, X } from 'lucide-react';
+import { Badge, formatCurrency } from '@ecokuku/ui';
+import { toast } from 'sonner';
+import { Plus, Edit, Trash2, X, Egg, TrendingUp, TrendingDown, AlertTriangle, ArrowUpDown, Filter } from 'lucide-react';
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 
 interface EggProduction {
-  id: string;
-  date: string;
-  collected: number;
-  broken?: number;
-  cracked?: number;
-  notes?: string;
-  batch?: {
-    id: string;
-    batchNumber: string;
-  };
+  id: string; date: string; collected: number; broken?: number; cracked?: number;
+  eggSize?: string; collectionTime?: string; collectedBy?: string;
+  storageLocation?: string; notes?: string;
+  batch?: { id: string; batchNumber: string };
 }
 
-interface Batch {
-  id: string;
-  batchNumber: string;
+interface Stats {
+  todayCollected: number; todayBroken: number; yesterdayCollected: number;
+  eggsDiff: number | null; dailyAvg7d: number; qualityRate: string;
+  weekTrend: number | null; trendAlert: boolean;
+  layingRate: string | null; totalLayers: number;
+  eggsInStore: number; totalProduced: number; totalSold: number;
+  monthCollected: number;
 }
+
+interface Batch { id: string; batchNumber: string; }
+
+type SortKey = 'date' | 'collected' | 'batch' | 'eggSize';
+type SortDir = 'asc' | 'desc';
+
+const SIZE_GRADES = ['Jumbo', 'Large', 'Medium', 'Small'];
+const COLLECTION_ROUNDS = ['Morning', 'Afternoon', 'Evening'];
+const SIZE_COLORS: Record<string, string> = {
+  Jumbo: 'bg-purple-100 text-purple-800', Large: 'bg-blue-100 text-blue-800',
+  Medium: 'bg-green-100 text-green-800', Small: 'bg-yellow-100 text-yellow-800',
+};
 
 export default function EggsPage() {
   const [eggs, setEggs] = useState<EggProduction[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [dailyChart, setDailyChart] = useState<any[]>([]);
+  const [weeklyChart, setWeeklyChart] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEgg, setSelectedEgg] = useState<EggProduction | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    collected: '',
-    broken: '',
-    cracked: '',
-    notes: '',
-    batchId: '',
-  });
-  const [editData, setEditData] = useState({
-    date: '',
-    collected: '',
-    broken: '',
-    cracked: '',
-    notes: '',
-    batchId: '',
-  });
+  const [batchFilter, setBatchFilter] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [showCharts, setShowCharts] = useState(true);
 
-  const fetchEggs = async () => {
+  const emptyForm = {
+    date: new Date().toISOString().split('T')[0], collected: '', broken: '', cracked: '',
+    eggSize: '', collectionTime: 'Morning', collectedBy: '', storageLocation: '', notes: '', batchId: '',
+  };
+  const [formData, setFormData] = useState(emptyForm);
+  const [editData, setEditData] = useState(emptyForm);
+
+  const fetchAll = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/eggs', { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch eggs');
-      const data = await response.json();
-      setEggs(data.data || []);
-    } catch (err) {
-      console.error('Error fetching eggs:', err);
+      const params = new URLSearchParams({ limit: '100' });
+      if (batchFilter) params.set('batchId', batchFilter);
+      const [eggsRes, batchRes] = await Promise.all([
+        fetch(`/api/eggs?${params}`),
+        fetch('/api/batches?status=ACTIVE&limit=100'),
+      ]);
+      const eggsData = await eggsRes.json();
+      const batchData = await batchRes.json();
+      setEggs(eggsData.data || []);
+      setStats(eggsData.stats || null);
+      setDailyChart(eggsData.charts?.daily || []);
+      setWeeklyChart(eggsData.charts?.weekly || []);
+      setBatches((batchData.data || []).map((b: any) => ({ id: b.id, batchNumber: b.batchNumber })));
+    } catch {
+      toast.error('Failed to load egg data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchBatches = async () => {
-    try {
-      const response = await fetch('/api/batches?status=ACTIVE&limit=100', { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch batches');
-      const data = await response.json();
-      setBatches(data.data || []);
-    } catch (err) {
-      console.error('Error fetching batches:', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchEggs();
-    fetchBatches();
-  }, []);
+  useEffect(() => { fetchAll(); }, [batchFilter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
     try {
-      const response = await fetch('/api/eggs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+      const res = await fetch('/api/eggs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to log egg production');
-      }
-
-      alert('Egg production logged successfully');
-      setFormData({ date: new Date().toISOString().split('T')[0], collected: '', broken: '', cracked: '', notes: '', batchId: '' });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+      toast.success('Egg collection logged');
+      setFormData(emptyForm);
       setShowForm(false);
-      fetchEggs();
+      fetchAll();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Error logging eggs:', err);
-    } finally {
-      setIsLoading(false);
+      toast.error(err instanceof Error ? err.message : 'Failed to log');
     }
   };
 
-  const openEditModal = (record: EggProduction) => {
-    setSelectedEgg(record);
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEgg) return;
+    try {
+      const res = await fetch('/api/eggs', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eggProductionId: selectedEgg.id, ...editData }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      toast.success('Record updated');
+      setShowEditModal(false);
+      fetchAll();
+    } catch { toast.error('Failed to update'); }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await fetch('/api/eggs', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eggProductionId: id }),
+      });
+      toast.success('Record deleted');
+      fetchAll();
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  const openEdit = (rec: EggProduction) => {
+    setSelectedEgg(rec);
     setEditData({
-      date: record.date.split('T')[0],
-      collected: record.collected.toString(),
-      broken: (record.broken || 0).toString(),
-      cracked: (record.cracked || 0).toString(),
-      notes: record.notes || '',
-      batchId: record.batch?.id || '',
+      date: rec.date.split('T')[0], collected: String(rec.collected),
+      broken: String(rec.broken || 0), cracked: String(rec.cracked || 0),
+      eggSize: rec.eggSize || '', collectionTime: rec.collectionTime || 'Morning',
+      collectedBy: rec.collectedBy || '', storageLocation: rec.storageLocation || '',
+      notes: rec.notes || '', batchId: rec.batch?.id || '',
     });
     setShowEditModal(true);
   };
 
-  const handleUpdateRecord = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedEgg) return;
-    
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/eggs', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          eggProductionId: selectedEgg.id,
-          date: new Date(editData.date),
-          collected: parseInt(editData.collected),
-          broken: editData.broken ? parseInt(editData.broken) : 0,
-          cracked: editData.cracked ? parseInt(editData.cracked) : 0,
-          notes: editData.notes,
-          ...(editData.batchId && { batchId: editData.batchId }),
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update egg production');
-      }
-
-      alert('Egg production updated successfully');
-      setShowEditModal(false);
-      setSelectedEgg(null);
-      fetchEggs();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Error updating eggs:', err);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('desc'); }
   };
 
-  const handleDeleteRecord = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this egg production record?')) return;
-
-    try {
-      const response = await fetch('/api/eggs', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ eggProductionId: id }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to delete egg production');
-      }
-
-      alert('Egg production deleted successfully');
-      fetchEggs();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete egg production');
-      console.error('Error deleting eggs:', err);
+  const sorted = [...eggs].sort((a, b) => {
+    let cmp = 0;
+    switch (sortKey) {
+      case 'date': cmp = new Date(a.date).getTime() - new Date(b.date).getTime(); break;
+      case 'collected': cmp = a.collected - b.collected; break;
+      case 'batch': cmp = (a.batch?.batchNumber || '').localeCompare(b.batch?.batchNumber || ''); break;
+      case 'eggSize': cmp = (a.eggSize || '').localeCompare(b.eggSize || ''); break;
     }
-  };
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
 
-  const todayStats = [
-    { label: 'Eggs Collected', value: '3,850', trend: '+240' },
-    { label: 'Daily Average', value: '2,925', trend: '+15%' },
-    { label: 'Quality Rate', value: '98.2%', trend: '+0.5%' },
-    { label: 'Broken Eggs', value: '28', trend: '-5' },
-  ];
+  const s = stats;
+  const fmt = (n: number) => `KSh ${Math.round(n).toLocaleString()}`;
+
+  const SortTh = ({ label, field, className }: { label: string; field: SortKey; className?: string }) => (
+    <th className={`px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none ${className || ''}`}
+      onClick={() => handleSort(field)}>
+      <span className="inline-flex items-center gap-1">{label}
+        <ArrowUpDown size={10} className={sortKey === field ? 'text-green-700' : 'text-gray-300'} />
+      </span>
+    </th>
+  );
+
+  const FormFields = ({ data, setData }: { data: typeof emptyForm; setData: (d: typeof emptyForm) => void }) => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
+          <input type="date" required value={data.date} onChange={(e) => setData({ ...data, date: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Batch</label>
+          <select value={data.batchId} onChange={(e) => setData({ ...data, batchId: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="">All / No batch</option>
+            {batches.map((b) => <option key={b.id} value={b.id}>{b.batchNumber}</option>)}
+          </select></div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Collection Round</label>
+          <select value={data.collectionTime} onChange={(e) => setData({ ...data, collectionTime: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
+            {COLLECTION_ROUNDS.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Eggs Collected *</label>
+          <input type="number" required min="0" value={data.collected} onChange={(e) => setData({ ...data, collected: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Broken</label>
+          <input type="number" min="0" value={data.broken} onChange={(e) => setData({ ...data, broken: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Cracked</label>
+          <input type="number" min="0" value={data.cracked} onChange={(e) => setData({ ...data, cracked: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Size Grade</label>
+          <select value={data.eggSize} onChange={(e) => setData({ ...data, eggSize: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="">—</option>
+            {SIZE_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+          </select></div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Collected By</label>
+          <input type="text" value={data.collectedBy} onChange={(e) => setData({ ...data, collectedBy: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Staff name" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Storage Location</label>
+          <input type="text" value={data.storageLocation} onChange={(e) => setData({ ...data, storageLocation: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Cold room A" /></div>
+      </div>
+      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Notes</label>
+        <textarea rows={2} value={data.notes} onChange={(e) => setData({ ...data, notes: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm resize-none" placeholder="Any observations..." /></div>
+    </div>
+  );
 
   return (
     <div className="flex">
       <Sidebar />
-
       <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
-        <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0">
-          <div className="flex justify-between items-center">
+        <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Egg size={28} className="text-green-700" />
             <div>
-              <h1 className="text-3xl font-bold">Egg Production</h1>
-              <p className="text-gray-600 mt-1">Daily egg collection and tracking</p>
+              <h1 className="text-2xl font-bold">Egg Production</h1>
+              <p className="text-gray-500 text-sm">Daily collection logs and production trends</p>
             </div>
-            <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
-              <Plus size={18} /> Log Collection
-            </Button>
           </div>
+          <button onClick={() => { setFormData(emptyForm); setShowForm(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-green-800 text-white rounded-lg font-medium hover:bg-green-700 text-sm">
+            <Plus size={16} /> Log Collection
+          </button>
         </div>
 
-        <div className="p-6">
-          {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {todayStats.map((stat) => (
-              <Card key={stat.label} className="p-4">
-                <p className="text-gray-600 text-sm">{stat.label}</p>
-                <div className="flex justify-between items-end mt-2">
-                  <p className="text-2xl font-bold">{stat.value}</p>
-                  <span className="text-green-600 text-sm flex items-center gap-1">
-                    <TrendingUp size={14} /> {stat.trend}
-                  </span>
+        <div className="p-6 space-y-5">
+          {/* Summary Cards */}
+          {s && (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="bg-white rounded-xl border p-4">
+                  <p className="text-xs text-gray-500">Collected today</p>
+                  <p className="text-2xl font-bold text-gray-900">{s.todayCollected.toLocaleString()}</p>
+                  {s.eggsDiff !== null && (
+                    <p className={`text-xs mt-1 flex items-center gap-1 ${s.eggsDiff >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {s.eggsDiff >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                      {s.eggsDiff > 0 ? '+' : ''}{s.eggsDiff} vs yesterday
+                    </p>
+                  )}
                 </div>
-              </Card>
-            ))}
-          </div>
+                <div className="bg-white rounded-xl border p-4">
+                  <p className="text-xs text-gray-500">Laying rate</p>
+                  <p className={`text-2xl font-bold ${s.layingRate && parseFloat(s.layingRate) < 60 ? 'text-red-600' : 'text-green-700'}`}>
+                    {s.layingRate ? `${s.layingRate}%` : '—'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">{s.totalLayers.toLocaleString()} layers active</p>
+                </div>
+                <div className="bg-white rounded-xl border p-4">
+                  <p className="text-xs text-gray-500">Quality rate</p>
+                  <p className="text-2xl font-bold text-green-700">{s.qualityRate}%</p>
+                  <p className="text-xs text-gray-400 mt-1">Good eggs / total</p>
+                </div>
+                <div className="bg-white rounded-xl border p-4">
+                  <p className="text-xs text-gray-500">Broken + cracked today</p>
+                  <p className={`text-2xl font-bold ${s.todayBroken > 0 ? 'text-red-600' : 'text-gray-900'}`}>{s.todayBroken.toLocaleString()}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {s.todayCollected > 0 ? `${((s.todayBroken / s.todayCollected) * 100).toFixed(1)}% of today's collection` : 'No collections today'}
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl border p-4">
+                  <p className="text-xs text-gray-500">In store (unsold)</p>
+                  <p className="text-2xl font-bold text-gray-900">{s.eggsInStore.toLocaleString()}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {s.totalProduced.toLocaleString()} produced · {s.totalSold.toLocaleString()} sold
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl border p-4">
+                  <p className="text-xs text-gray-500">7-day avg / day</p>
+                  <p className="text-2xl font-bold text-gray-900">{s.dailyAvg7d.toLocaleString()}</p>
+                  {s.weekTrend !== null && (
+                    <p className={`text-xs mt-1 flex items-center gap-1 ${s.weekTrend >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {s.weekTrend >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                      {s.weekTrend > 0 ? '+' : ''}{s.weekTrend}% vs prior week
+                    </p>
+                  )}
+                </div>
+              </div>
 
-          {/* Production History */}
-          <Card>
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="font-bold text-lg">Collection History</h2>
+              {/* Trend Alert */}
+              {s.trendAlert && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                  <AlertTriangle size={20} className="text-red-600 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-red-900">Production drop alert</p>
+                    <p className="text-sm text-red-700">Collection is down {Math.abs(s.weekTrend!)}% compared to the prior week. Check feed quality, water, lighting, and flock health.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Laying rate warning */}
+              {s.layingRate && parseFloat(s.layingRate) < 60 && parseFloat(s.layingRate) > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
+                  <AlertTriangle size={20} className="text-amber-600 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-amber-900">Low laying rate: {s.layingRate}%</p>
+                    <p className="text-sm text-amber-700">Below 60% indicates possible health or nutrition problems. Check feed calcium levels, lighting hours, and stress factors.</p>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Charts */}
+          {showCharts && (
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+              {/* Daily Collection Line Chart */}
+              {dailyChart.length > 1 && (
+                <div className="lg:col-span-3 bg-white rounded-xl border p-5">
+                  <h3 className="font-bold text-sm mb-3">Daily collection — last 30 days</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={dailyChart}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="day" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="collected" name="Collected" stroke="#16a34a" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="good" name="Good" stroke="#2563eb" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* This Week Sparkbar */}
+              <div className="lg:col-span-2 bg-white rounded-xl border p-5">
+                <h3 className="font-bold text-sm mb-3">This week</h3>
+                {dailyChart.length > 0 ? (
+                  <>
+                    <div className="flex items-end gap-2 mb-4" style={{ height: 140 }}>
+                      {dailyChart.slice(-7).map((d, i, arr) => {
+                        const maxVal = Math.max(...arr.map((dd) => dd.collected), 1);
+                        const pct = d.collected > 0 ? Math.max(10, (d.collected / maxVal) * 100) : 4;
+                        const isLast = i === arr.length - 1;
+                        return (
+                          <div key={d.day} className="flex-1 flex flex-col items-center justify-end gap-0.5 h-full">
+                            {d.collected > 0 && (
+                              <span className={`text-[9px] font-semibold ${isLast ? 'text-green-800' : 'text-gray-500'}`}>
+                                {d.collected.toLocaleString()}
+                              </span>
+                            )}
+                            <div className={`w-full rounded-sm ${d.collected === 0 ? 'bg-gray-200' : isLast ? 'bg-green-700' : 'bg-green-300'}`} style={{ height: `${pct}%` }} />
+                            <span className={`text-[9px] ${isLast ? 'font-bold text-green-800' : 'text-gray-400'}`}>{d.day.split(' ')[0]}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center justify-between pt-3 border-t">
+                      <div><p className="text-xs text-gray-500">Week total</p><p className="text-lg font-bold">{dailyChart.slice(-7).reduce((ss, d) => ss + d.collected, 0).toLocaleString()}</p></div>
+                      <div className="text-right"><p className="text-xs text-gray-500">Daily avg</p><p className="text-lg font-bold">{s ? s.dailyAvg7d.toLocaleString() : '—'}</p></div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-8 text-center text-gray-400 text-sm">No data this week</div>
+                )}
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Date</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Batch</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Collected</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Good Eggs</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Destroyed (Broken + Cracked)</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Notes</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {isLoading ? (
+          )}
+
+          {/* Good vs Broken Weekly Bar Chart */}
+          {weeklyChart.length > 1 && showCharts && (
+            <div className="bg-white rounded-xl border p-5">
+              <h3 className="font-bold text-sm mb-1">Weekly egg breakdown</h3>
+              <p className="text-xs text-gray-400 mb-3">Green = good eggs, Red = broken + cracked. Stacked per week.</p>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={weeklyChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(v: number, name: string) => [v.toLocaleString(), name]} />
+                  <Legend />
+                  <Bar dataKey="good" name="Good eggs" stackId="a" fill="#16a34a" />
+                  <Bar dataKey="broken" name="Broken / cracked" stackId="a" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Collection History Table */}
+          <div className="bg-white rounded-xl border">
+            <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-3">
+              <h3 className="font-bold text-lg">Collection history</h3>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Filter size={14} className="text-gray-400" />
+                  <select value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}
+                    className="border rounded-lg px-3 py-1.5 text-sm">
+                    <option value="">All batches</option>
+                    {batches.map((b) => <option key={b.id} value={b.id}>{b.batchNumber}</option>)}
+                  </select>
+                </div>
+                <button onClick={() => setShowCharts(!showCharts)}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline">
+                  {showCharts ? 'Hide charts' : 'Show charts'}
+                </button>
+              </div>
+            </div>
+            {isLoading ? (
+              <div className="p-8 text-center text-gray-500">Loading...</div>
+            ) : sorted.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                <Egg size={40} className="mx-auto mb-3 text-gray-300" />
+                <p>No egg records found</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
                     <tr>
-                      <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
-                        Loading data...
-                      </td>
+                      <SortTh label="Date" field="date" />
+                      <SortTh label="Batch" field="batch" />
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Round</th>
+                      <SortTh label="Collected" field="collected" />
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Broken</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Good eggs</th>
+                      <SortTh label="Grade" field="eggSize" />
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">By</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
                     </tr>
-                  ) : eggs.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
-                        No egg production records found
-                      </td>
-                    </tr>
-                  ) : (
-                    eggs.map((record) => {
-                      const destroyed = (record.broken || 0) + (record.cracked || 0);
-                      const goodEggs = record.collected - destroyed;
+                  </thead>
+                  <tbody className="divide-y">
+                    {sorted.map((rec) => {
+                      const damaged = (rec.broken || 0) + (rec.cracked || 0);
+                      const good = rec.collected - damaged;
+                      const dateStr = new Date(rec.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
                       return (
-                        <tr key={record.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 text-sm">{new Date(record.date).toLocaleDateString()}</td>
-                          <td className="px-6 py-4 text-sm font-medium">
-                            {record.batch?.batchNumber || '-'}
+                        <tr key={rec.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm">
+                            <span>{dateStr}</span>
+                            {rec.collectionTime && <span className="block text-xs text-gray-400">{rec.collectionTime === 'Morning' ? 'AM' : rec.collectionTime === 'Afternoon' ? 'PM' : 'Eve'}</span>}
                           </td>
-                          <td className="px-6 py-4 text-sm font-semibold text-blue-600">{record.collected}</td>
-                          <td className="px-6 py-4 text-sm font-semibold text-green-600">{goodEggs}</td>
-                          <td className="px-6 py-4 text-sm font-semibold text-red-600">{destroyed}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{record.notes || '-'}</td>
-                          <td className="px-6 py-4 text-sm flex gap-2">
-                            <button
-                              onClick={() => openEditModal(record)}
-                              className="text-blue-600 hover:text-blue-800"
-                              title="Edit"
-                            >
-                              <Edit size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteRecord(record.id)}
-                              className="text-red-600 hover:text-red-800"
-                              title="Delete"
-                            >
-                              <Trash2 size={18} />
-                            </button>
+                          <td className="px-4 py-3 text-sm font-medium">{rec.batch?.batchNumber || '—'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{rec.collectionTime || '—'}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-green-700">{rec.collected.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-red-600">{damaged > 0 ? damaged : '—'}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-gray-900">{good.toLocaleString()}</td>
+                          <td className="px-4 py-3">
+                            {rec.eggSize ? (
+                              <Badge className={`text-xs ${SIZE_COLORS[rec.eggSize] || 'bg-gray-100 text-gray-700'}`}>{rec.eggSize}</Badge>
+                            ) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{rec.collectedBy || '—'}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1">
+                              <button onClick={() => openEdit(rec)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Edit"><Edit size={14} /></button>
+                              <button onClick={() => handleDelete(rec.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="Delete"><Trash2 size={14} /></button>
+                            </div>
                           </td>
                         </tr>
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Log Form Modal */}
+        {/* LOG COLLECTION MODAL */}
         {showForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="w-full max-w-md">
-              <div className="p-6">
-                <h2 className="text-xl font-bold mb-4">Log Egg Collection</h2>
-                {error && <div className="mb-4 p-3 bg-red-100 text-red-800 rounded">{error}</div>}
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Batch (Optional)</label>
-                    <select
-                      value={formData.batchId}
-                      onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                    >
-                      <option value="">No Batch Selected</option>
-                      {batches.map((batch) => (
-                        <option key={batch.id} value={batch.id}>
-                          {batch.batchNumber}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Eggs Collected</label>
-                    <input
-                      type="number"
-                      required
-                      value={formData.collected}
-                      onChange={(e) => setFormData({ ...formData, collected: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-sm font-medium">Broken</label>
-                      <input
-                        type="number"
-                        value={formData.broken}
-                        onChange={(e) => setFormData({ ...formData, broken: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Cracked</label>
-                      <input
-                        type="number"
-                        value={formData.cracked}
-                        onChange={(e) => setFormData({ ...formData, cracked: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Notes</label>
-                    <input
-                      type="text"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                      placeholder="Optional notes"
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <Button type="button" onClick={() => setShowForm(false)} className="flex-1 bg-gray-200">
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isLoading} className="flex-1 bg-blue-600 text-white">
-                      {isLoading ? 'Logging...' : 'Log Collection'}
-                    </Button>
-                  </div>
-                </form>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="p-5 border-b flex justify-between sticky top-0 bg-white z-10">
+                <h2 className="font-bold text-xl">Log Egg Collection</h2>
+                <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
               </div>
-            </Card>
+              <form onSubmit={handleSubmit} className="p-5">
+                <FormFields data={formData} setData={setFormData} />
+                <div className="flex gap-3 mt-5">
+                  <button type="submit" className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700">Log Collection</button>
+                  <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">Cancel</button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
-        {/* Edit Modal */}
+        {/* EDIT MODAL */}
         {showEditModal && selectedEgg && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="w-full max-w-md mx-4">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold">Edit Egg Collection</h2>
-                  <button onClick={() => setShowEditModal(false)} className="text-gray-500 hover:text-gray-700">
-                    <X size={24} />
-                  </button>
-                </div>
-                {error && <div className="mb-4 p-3 bg-red-100 text-red-800 rounded">{error}</div>}
-                <form onSubmit={handleUpdateRecord} className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={editData.date}
-                      onChange={(e) => setEditData({ ...editData, date: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Batch (Optional)</label>
-                    <select
-                      value={editData.batchId}
-                      onChange={(e) => setEditData({ ...editData, batchId: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                    >
-                      <option value="">No Batch Selected</option>
-                      {batches.map((batch) => (
-                        <option key={batch.id} value={batch.id}>
-                          {batch.batchNumber}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Eggs Collected</label>
-                    <input
-                      type="number"
-                      required
-                      value={editData.collected}
-                      onChange={(e) => setEditData({ ...editData, collected: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-sm font-medium">Broken</label>
-                      <input
-                        type="number"
-                        value={editData.broken}
-                        onChange={(e) => setEditData({ ...editData, broken: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Cracked</label>
-                      <input
-                        type="number"
-                        value={editData.cracked}
-                        onChange={(e) => setEditData({ ...editData, cracked: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Notes</label>
-                    <input
-                      type="text"
-                      value={editData.notes}
-                      onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-1"
-                      placeholder="Optional notes"
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <Button type="button" onClick={() => setShowEditModal(false)} className="flex-1 bg-gray-200">
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isLoading} className="flex-1 bg-blue-600 text-white">
-                      {isLoading ? 'Updating...' : 'Update'}
-                    </Button>
-                  </div>
-                </form>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="p-5 border-b flex justify-between sticky top-0 bg-white z-10">
+                <h2 className="font-bold text-xl">Edit Collection Record</h2>
+                <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
               </div>
-            </Card>
+              <form onSubmit={handleUpdate} className="p-5">
+                <FormFields data={editData} setData={setEditData} />
+                <div className="flex gap-3 mt-5">
+                  <button type="submit" className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700">Update</button>
+                  <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">Cancel</button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </main>

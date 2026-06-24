@@ -78,7 +78,9 @@ export async function POST(request: NextRequest) {
       dateAdministered,
       dosage,
       administeredBy,
+      batchNo,
       notes,
+      cost,
     } = body;
 
     if (!vaccineType || !dateAdministered) {
@@ -95,6 +97,7 @@ export async function POST(request: NextRequest) {
         dateAdministered: new Date(dateAdministered),
         dosage,
         administeredBy,
+        batchNo: batchNo || null,
         notes,
       },
       include: {
@@ -122,6 +125,19 @@ export async function POST(request: NextRequest) {
           })),
         });
       }
+    }
+
+    if (cost && parseFloat(cost) > 0) {
+      await db.expense.create({
+        data: {
+          category: 'MEDICINE_VACCINE',
+          description: `${vaccineType} vaccination${log.batch ? ` for batch ${log.batch.batchNumber}` : ''}`,
+          amount: parseFloat(cost),
+          date: new Date(dateAdministered),
+          sourceType: 'VACCINATION',
+          sourceId: log.id,
+        },
+      });
     }
 
     return NextResponse.json(
