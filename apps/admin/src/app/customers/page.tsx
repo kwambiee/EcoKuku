@@ -110,12 +110,12 @@ export default function CustomersPage() {
     <div className="flex">
       <Sidebar />
       <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
-        <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0">
+        <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0">
           <h1 className="text-2xl font-bold">Customer Management</h1>
           <p className="text-gray-500 text-sm mt-1">Track customers, segments, lifetime value, and outstanding balances</p>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
           {/* Summary Cards */}
           {stats && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -193,7 +193,7 @@ export default function CustomersPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 border-b">
                     <tr>
                       <SortHeader field="name">Name</SortHeader>

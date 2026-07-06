@@ -41,9 +41,11 @@ export const adminAuthOptions: NextAuthOptions = {
             throw new Error('User not found');
           }
 
-          // Admin access only for ADMIN and STAFF roles
-          if (user.role !== 'ADMIN' && user.role !== 'STAFF') {
+          if (!['ADMIN', 'STAFF', 'DRIVER'].includes(user.role)) {
             throw new Error('Unauthorized: admin access required');
+          }
+          if (!(user as any).isActive) {
+            throw new Error('Account deactivated. Contact your administrator.');
           }
 
           const passwordMatch = await bcrypt.compare(

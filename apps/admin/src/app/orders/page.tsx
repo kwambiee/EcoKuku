@@ -159,12 +159,12 @@ export default function OrdersPage() {
     <div className="flex">
       <Sidebar />
       <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
-        <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0">
+        <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0">
           <h1 className="text-2xl font-bold">Order Management</h1>
           <p className="text-gray-500 text-sm mt-1">Track, manage and fulfill customer orders</p>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
           {/* Summary Cards */}
           {stats && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -239,7 +239,7 @@ export default function OrdersPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500">
                     <tr>
                       <th className="px-4 py-3 text-left">Order</th>
@@ -395,7 +395,7 @@ export default function OrdersPage() {
                     <Package size={14} /> Items ({selectedOrder.items?.length || 0})
                   </h3>
                   <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-max text-sm">
                       <thead className="bg-gray-50 border-b">
                         <tr>
                           <th className="px-4 py-2 text-left text-gray-600">Product</th>

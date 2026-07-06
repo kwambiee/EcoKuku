@@ -208,7 +208,7 @@ export default function BatchesPage() {
     <div className="flex">
       <Sidebar />
       <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
-        <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0 flex items-center justify-between">
+        <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Bird size={28} className="text-green-700" />
             <div>
@@ -234,7 +234,7 @@ export default function BatchesPage() {
           </div>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
           {/* Summary Cards */}
           {stats && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -297,7 +297,7 @@ export default function BatchesPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <SortTh label="Batch" field="batchNumber" />

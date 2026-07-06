@@ -428,7 +428,7 @@ export default function HealthPage() {
     <div className="flex">
       <Sidebar />
       <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
-        <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0">
+        <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0">
           <div className="flex justify-between items-center flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold">Health & Vaccination</h1>
@@ -447,7 +447,7 @@ export default function HealthPage() {
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Alerts */}
           {success && (
             <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
@@ -491,7 +491,7 @@ export default function HealthPage() {
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full min-w-max border-collapse">
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200 sticky left-0 bg-gray-50 z-10 min-w-[180px]">
@@ -572,7 +572,7 @@ export default function HealthPage() {
             </button>
             {showSchedule && (
             <div className="overflow-x-auto border-t border-gray-200">
-              <table className="w-full">
+              <table className="w-full min-w-max">
                 <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                   <tr>
                     <th className="px-4 py-3 text-left">Vaccine</th>
@@ -611,7 +611,7 @@ export default function HealthPage() {
             </button>
             {showHistory && (
             <div className="overflow-x-auto border-t border-gray-200">
-              <table className="w-full">
+              <table className="w-full min-w-max">
                 <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                   <tr>
                     <th className="px-4 py-3 text-left">Date</th>
@@ -698,7 +698,7 @@ export default function HealthPage() {
               <div className="p-8 text-center text-gray-400 text-sm border-t">No disease or treatment events logged yet</div>
             ) : showDiseaseLog && (
               <div className="overflow-x-auto border-t border-gray-200">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                     <tr>
                       <th className="px-4 py-3 text-left">Date</th>

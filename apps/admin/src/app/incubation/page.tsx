@@ -291,7 +291,7 @@ export default function IncubationPage() {
     <div className="flex">
       <Sidebar />
       <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
-        <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0 flex items-center justify-between">
+        <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold">Incubation Management</h1>
             <p className="text-gray-600 mt-1">Track eggs from incubator to farm batch</p>
@@ -306,7 +306,7 @@ export default function IncubationPage() {
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Info banner */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
             <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
@@ -355,7 +355,7 @@ export default function IncubationPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <SortHeader label="Batch #" field="batchNumber" />

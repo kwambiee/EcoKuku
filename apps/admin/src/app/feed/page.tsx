@@ -179,7 +179,7 @@ export default function FeedPage() {
       <Sidebar />
       <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0 flex items-center justify-between flex-wrap gap-3">
+        <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0 flex items-center justify-between flex-wrap gap-3">
           <div>
             <div className="flex items-center gap-2">
               <Wheat size={24} className="text-green-800" />
@@ -199,7 +199,7 @@ export default function FeedPage() {
           </div>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
           {/* Critical / Warning Alert Banner */}
           {worstItem && (
             <div className={`rounded-lg p-4 flex items-center justify-between ${worstItem.isCritical ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200'}`}>
@@ -282,7 +282,7 @@ export default function FeedPage() {
                 <div className="p-8 text-center text-gray-400 text-sm">No purchases recorded yet</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full min-w-max">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                       <tr>
                         <th className="px-4 py-3 text-left">Date</th>
@@ -324,7 +324,7 @@ export default function FeedPage() {
                 <h2 className="font-bold text-lg">Feeding guide by age</h2>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-green-50 text-xs uppercase text-green-900">
                     <tr>
                       <th className="px-4 py-3 text-left">Age</th>
@@ -362,7 +362,7 @@ export default function FeedPage() {
               <div className="p-8 text-center text-gray-400 text-sm">No consumption logged yet</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                     <tr>
                       <th className="px-4 py-3 text-left">Date</th>
@@ -418,7 +418,7 @@ export default function FeedPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                     <tr>
                       <th className="px-4 py-3 text-left">Feed type</th>

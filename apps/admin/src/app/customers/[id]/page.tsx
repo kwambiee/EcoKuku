@@ -129,10 +129,10 @@ export default function CustomerDetailPage() {
     return (
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100 p-8">
+        <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100 p-4 mt-16 lg:mt-0">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-gray-200 rounded w-1/3" />
-            <div className="grid grid-cols-4 gap-4 mt-6">{[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-200 rounded-lg" />)}</div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">{[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-200 rounded-lg" />)}</div>
             <div className="h-64 bg-gray-200 rounded-lg mt-6" />
           </div>
         </main>
@@ -165,7 +165,7 @@ export default function CustomerDetailPage() {
           </div>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
           {/* Contact + Admin Fields */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="bg-white rounded-xl border p-5 lg:col-span-2">
@@ -288,7 +288,7 @@ export default function CustomerDetailPage() {
                   <div className="p-6 text-center text-gray-400">No orders yet.</div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-max text-sm">
                       <thead className="bg-gray-50 border-b">
                         <tr>
                           <th className="px-4 py-2.5 text-left text-gray-600">Order #</th>
@@ -380,7 +380,7 @@ export default function CustomerDetailPage() {
                     <div className="p-6 text-center text-gray-400 text-sm">No batch orders.</div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full min-w-max text-sm">
                         <thead className="bg-gray-50 border-b"><tr>
                           <th className="px-4 py-2 text-left text-gray-600">Order</th>
                           <th className="px-4 py-2 text-left text-gray-600">Batch</th>

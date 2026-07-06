@@ -16,6 +16,7 @@ enum UserRole {
   CUSTOMER
   ADMIN
   STAFF
+  DRIVER
 }
 
 model User {
@@ -25,6 +26,7 @@ model User {
   name          String
   password      String
   role          UserRole  @default(CUSTOMER)
+  isActive      Boolean   @default(true)
   avatar        String?
   customerType  String?   // RETAIL, WHOLESALE, RESTAURANT, INDIVIDUAL
   location      String?
@@ -295,6 +297,7 @@ model Batch {
   mortalityLogs MortalityLog[]
   growthLogs    GrowthLog[]
   vaccinations  Vaccination[]
+  expenses      Expense[]
   healthEvents  HealthEvent[]
   eggProduction EggProduction[]
   feedLogs      FeedLog[]
@@ -550,6 +553,7 @@ enum ExpenseCategory {
   FEED
   MEDICINE_VACCINE
   CHICKS_PURCHASE
+  PACKAGING
   EQUIPMENT
   LABOUR
   UTILITIES
@@ -558,22 +562,40 @@ enum ExpenseCategory {
   OTHER
 }
 
+model MonthlyBudget {
+  id        String   @id @default(cuid())
+  month     Int      // 1–12
+  year      Int
+  amount    Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([month, year])
+  @@index([year])
+}
+
 model Expense {
-  id          String          @id @default(cuid())
-  date        DateTime        @default(now())
-  category    ExpenseCategory
-  description String
-  amount      Decimal         @db.Decimal(10, 2)
-  vendor      String?
-  receiptRef  String?
-  notes       String?
-  sourceType  String?         // FEED_PURCHASE, BATCH_CREATION, VACCINATION, MANUAL
-  sourceId    String?         // ID of the source record
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id             String          @id @default(cuid())
+  date           DateTime        @default(now())
+  category       ExpenseCategory
+  description    String
+  amount         Decimal         @db.Decimal(10, 2)
+  paymentMethod  String?         // CASH, MPESA, BANK_TRANSFER
+  vendor         String?
+  receiptRef     String?
+  receiptImage   String?         // URL of uploaded receipt photo
+  notes          String?
+  sourceType     String?         // FEED_PURCHASE, BATCH_CREATION, VACCINATION, MANUAL
+  sourceId       String?         // ID of the source record
+  batchId        String?         // Optional link to a specific batch
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  batch          Batch?          @relation(fields: [batchId], references: [id], onDelete: SetNull)
 
   @@index([category])
   @@index([date])
+  @@index([batchId])
 }
 
 // ============= BATCH ORDERS (CUSTOMER PRE-ORDERS FOR REARING) =============
@@ -629,6 +651,21 @@ model BatchOrderUpdate {
 }
 
 // ============= SETTINGS & CONFIGURATION =============
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  userName  String
+  userEmail String
+  action    String
+  module    String
+  recordId  String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([module])
+  @@index([createdAt])
+}
 
 model Setting {
   id    String @id @default(cuid())

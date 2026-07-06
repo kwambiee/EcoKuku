@@ -159,7 +159,7 @@ export default function LogisticsPage() {
     <div className="flex">
       <Sidebar />
       <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
-        <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0 flex items-center justify-between flex-wrap gap-3">
+        <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0 flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold">Logistics & Delivery</h1>
             <p className="text-gray-500 text-sm mt-1">Delivery queue, driver management, SMS notifications</p>
@@ -175,7 +175,7 @@ export default function LogisticsPage() {
           </div>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
           {/* Summary Cards */}
           {stats && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -251,7 +251,7 @@ export default function LogisticsPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500">
                     <tr>
                       <th className="px-4 py-3 text-left">Order</th>
@@ -387,7 +387,7 @@ export default function LogisticsPage() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full min-w-max">
                       <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500">
                         <tr>
                           <th className="px-4 py-3 text-left">Driver</th>

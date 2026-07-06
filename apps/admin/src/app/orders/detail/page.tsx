@@ -59,7 +59,7 @@ export default function OrdersPage() {
           {/* Orders Table */}
           <Card>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-max">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Order ID</th>

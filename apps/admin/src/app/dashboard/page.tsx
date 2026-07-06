@@ -66,7 +66,7 @@ export default function DashboardPage() {
       <Sidebar />
       <main className="flex-1 lg:ml-64 min-h-screen bg-stone-50">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0 flex items-center justify-between">
+        <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               {data ? `Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, ${data.greeting.name}` : 'Dashboard'}
@@ -94,7 +94,7 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : data && m ? (
-          <div className="p-6 space-y-5">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
 
             {/* TODAY AT A GLANCE */}
             <div>

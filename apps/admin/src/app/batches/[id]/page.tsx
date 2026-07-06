@@ -357,8 +357,8 @@ export default function BatchDetailPage() {
                   </ResponsiveContainer>
                 </div>
               )}
-              <div className="bg-white rounded-xl border overflow-hidden">
-                <table className="w-full">
+              <div className="overflow-x-auto bg-white rounded-xl border">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 border-b text-xs uppercase text-gray-600"><tr>
                     <th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-left">Avg Weight (kg)</th><th className="px-4 py-3 text-left">Age</th><th className="px-4 py-3 text-left">Notes</th>
                   </tr></thead>
@@ -389,8 +389,8 @@ export default function BatchDetailPage() {
                 </div>
                 <button onClick={() => setShowMortalityForm(true)} className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"><Plus size={15} /> Log Deaths</button>
               </div>
-              <div className="bg-white rounded-xl border overflow-hidden">
-                <table className="w-full">
+              <div className="overflow-x-auto bg-white rounded-xl border">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 border-b text-xs uppercase text-gray-600"><tr>
                     <th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-right">Deaths</th><th className="px-4 py-3 text-right">Cumulative</th><th className="px-4 py-3 text-left">Cause</th><th className="px-4 py-3 text-left">Notes</th>
                   </tr></thead>
@@ -422,8 +422,8 @@ export default function BatchDetailPage() {
                 <h3 className="font-bold text-lg">Feed Consumption for {batch.batchNumber}</h3>
                 <Link href="/feed" className="text-sm text-green-700 font-medium hover:underline">Go to Feed Management →</Link>
               </div>
-              <div className="bg-white rounded-xl border overflow-hidden">
-                <table className="w-full">
+              <div className="overflow-x-auto bg-white rounded-xl border">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 border-b text-xs uppercase text-gray-600"><tr>
                     <th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-left">Feed Type</th><th className="px-4 py-3 text-right">Qty Used (kg)</th><th className="px-4 py-3 text-left">Notes</th>
                   </tr></thead>
@@ -450,8 +450,8 @@ export default function BatchDetailPage() {
                 <h3 className="font-bold text-lg">Vaccination History for {batch.batchNumber}</h3>
                 <Link href="/health" className="flex items-center gap-2 px-4 py-2 bg-green-800 text-white rounded-lg text-sm font-medium hover:bg-green-700"><Plus size={15} /> Log Vaccination</Link>
               </div>
-              <div className="bg-white rounded-xl border overflow-hidden">
-                <table className="w-full">
+              <div className="overflow-x-auto bg-white rounded-xl border">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50 border-b text-xs uppercase text-gray-600"><tr>
                     <th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-left">Vaccine</th><th className="px-4 py-3 text-left">Dosage</th><th className="px-4 py-3 text-left">Administered By</th><th className="px-4 py-3 text-left">Notes</th>
                   </tr></thead>
