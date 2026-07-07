@@ -237,7 +237,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Batch ID is required' }, { status: 400 });
     }
 
-    await db.batch.delete({ where: { id: body.batchId } });
+    await db.$transaction(async (tx) => {
+      const batchOrders = await tx.batchOrder.findMany({
+        where: { batchId: body.batchId },
+        select: { id: true },
+      });
+      const batchOrderIds = batchOrders.map((o: { id: string }) => o.id);
+      if (batchOrderIds.length > 0) {
+        await tx.batchOrderUpdate.deleteMany({ where: { batchOrderId: { in: batchOrderIds } } });
+        await tx.batchOrder.deleteMany({ where: { id: { in: batchOrderIds } } });
+      }
+      await tx.batch.delete({ where: { id: body.batchId } });
+    });
     return NextResponse.json({ message: 'Batch deleted' });
   } catch (error) {
     console.error('Batch deletion error:', error);
