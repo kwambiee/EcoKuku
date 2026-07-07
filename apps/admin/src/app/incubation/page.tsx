@@ -67,7 +67,7 @@ export default function IncubationPage() {
   const [sortKey, setSortKey] = useState<SortKey>('startDate');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [eggsHatchedThisMonth, setEggsHatchedThisMonth] = useState(0);
-  const [nextBatchNumber, setNextBatchNumber] = useState('INC-001');
+  const [, setNextBatchNumber] = useState('INC-001');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingBatch, setDeletingBatch] = useState<IncubationBatch | null>(null);
 

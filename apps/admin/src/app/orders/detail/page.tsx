@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Button, Card, Badge } from '@ecokuku/ui';
-import { Plus } from 'lucide-react';
 
 export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState('');

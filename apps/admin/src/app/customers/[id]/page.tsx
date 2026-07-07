@@ -9,8 +9,8 @@ import { formatCurrency, formatDate } from '@ecokuku/ui';
 import { toast } from 'sonner';
 import {
   ArrowLeft, ShoppingCart, DollarSign, TrendingUp, CalendarDays,
-  Mail, Phone, User, Star, Package, StickyNote, Crown,
-  AlertTriangle, MapPin, Tag, Gift, ChevronDown, ChevronUp, Save,
+  Mail, Phone, User, Star, Package, StickyNote,
+  AlertTriangle, MapPin, Gift, ChevronDown, ChevronUp, Save,
 } from 'lucide-react';
 
 interface OrderItem {

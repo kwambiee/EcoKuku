@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/Sidebar';
 import { formatCurrency, formatDate } from '@ecokuku/ui';
 import {
-  Users, Eye, ArrowUpDown, Phone, ChevronDown, ChevronUp,
+  Users, Eye, Phone, ChevronDown, ChevronUp,
   UserPlus, AlertTriangle, Crown, RefreshCw, Star,
 } from 'lucide-react';
 
@@ -38,7 +38,6 @@ const SEGMENT_CONFIG: Record<string, { label: string; color: string; icon?: Reac
   NEW: { label: 'New', color: 'bg-blue-100 text-blue-700' },
 };
 
-const CUSTOMER_TYPES = ['RETAIL', 'WHOLESALE', 'RESTAURANT', 'INDIVIDUAL'];
 
 type SortField = 'name' | 'totalSpent' | 'orderCount' | 'lastOrderDate' | 'createdAt';
 

@@ -56,7 +56,7 @@ class MpesaClient {
       this.accessToken = response.data.access_token;
       // Token expires in 3600 seconds, cache for 3500 seconds
       this.tokenExpiry = Date.now() + 3500000;
-      return this.accessToken;
+      return this.accessToken!;
     } catch (error) {
       console.error('Failed to get M-PESA access token:', error);
       throw new Error('Failed to authenticate with M-PESA');

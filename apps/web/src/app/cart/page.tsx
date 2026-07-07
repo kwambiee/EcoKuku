@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@ecokuku/ui';
-import { Trash2, AlertCircle } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 
 export default function CartPage() {
-  const { items: cartItems, removeItem, updateQuantity, getTotal, clearCart } = useCart();
+  const { items: cartItems, removeItem, updateQuantity, getTotal } = useCart();
   const [promoCode, setPromoCode] = useState('');
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [promoApplied, setPromoApplied] = useState(false);

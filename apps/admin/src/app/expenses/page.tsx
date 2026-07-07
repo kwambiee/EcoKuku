@@ -85,7 +85,7 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [byCategoryThisMonth, setByCategoryThisMonth] = useState<{ category: string; amount: number }[]>([]);
-  const [total, setTotal] = useState(0);
+  const [, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);

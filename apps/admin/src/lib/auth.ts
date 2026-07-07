@@ -27,7 +27,7 @@ export const adminAuthOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email', placeholder: 'email@example.com' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials, _req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Invalid credentials');
         }

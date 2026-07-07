@@ -1,7 +1,7 @@
 import { withAuth } from 'next-auth/middleware';
 
 export const middleware = withAuth(
-  function middleware(request) {
+  function middleware(_request) {
     // Optionally add custom logic here for role-based protection
     return;
   },

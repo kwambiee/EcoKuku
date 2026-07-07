@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
-import { Badge, formatCurrency } from '@ecokuku/ui';
+import { Badge } from '@ecokuku/ui';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, Bird, AlertTriangle, Search, ArrowUpDown, Eye, X, TrendingDown, ShieldAlert } from 'lucide-react';
+import { Plus, Bird, AlertTriangle, Search, ArrowUpDown, X, TrendingDown, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 
 interface Batch {

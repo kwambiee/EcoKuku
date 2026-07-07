@@ -120,8 +120,8 @@ export default function ReportsPage() {
   };
 
   const applyCustom = () => {
-    if (!customStart || !customEnd) return toast.error('Select both start and end dates');
-    if (customEnd < customStart) return toast.error('End date must be after start date');
+    if (!customStart || !customEnd) { toast.error('Select both start and end dates'); return; }
+    if (customEnd < customStart) { toast.error('End date must be after start date'); return; }
     setActivePreset('Custom');
     fetchData(customStart, customEnd);
   };
@@ -288,7 +288,7 @@ ${data.topCustomers.map((c, i) => `<tr><td>#${i + 1} ${c.name}</td><td class="te
   if (daily30dForecastData.length > 0 && data?.dailyRevenue60d?.length === 60) {
     const lastActualIdx = 29;
     if (daily30dForecastData[lastActualIdx]) {
-      daily30dForecastData[lastActualIdx] = { ...daily30dForecastData[lastActualIdx], forecast: daily30dForecastData[lastActualIdx].actual };
+      daily30dForecastData[lastActualIdx] = { ...daily30dForecastData[lastActualIdx], forecast: daily30dForecastData[lastActualIdx].actual } as { date: string; actual: number; forecast: number | null };
     }
   }
 

@@ -37,7 +37,7 @@ export async function GET(_request: NextRequest) {
       eggsToday,
       eggsYesterday,
       ordersToday,
-      ordersYesterday,
+      _ordersYesterday,
       ordersPending,
       ordersOutForDelivery,
       revenueToday,
@@ -47,7 +47,7 @@ export async function GET(_request: NextRequest) {
       expensesThisMonth,
       recentOrders,
       lowStockProducts,
-      pendingBatchOrders,
+      _pendingBatchOrders,
       mortalityToday,
       outstandingPayments,
       feedTypes,
@@ -286,7 +286,6 @@ export async function GET(_request: NextRequest) {
 
     const weekTotal = weeklyEggs.reduce((s, d) => s + d.good, 0);
     const weekCollected = weeklyEggs.reduce((s, d) => s + d.collected, 0);
-    const weekDamaged = weekCollected - weekTotal;
     const dailyAvgEggs = weeklyEggs.length > 0 ? Math.round(weekCollected / weeklyEggs.length) : 0;
     const qualityRate = weekCollected > 0 ? ((weekTotal / weekCollected) * 100).toFixed(1) : '0';
 

@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from '@/components/Sidebar';
-import { Badge, formatCurrency } from '@ecokuku/ui';
+import { Badge } from '@ecokuku/ui';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, X, Egg, TrendingUp, TrendingDown, AlertTriangle, ArrowUpDown, Filter } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer,
+  Tooltip, ResponsiveContainer,
 } from 'recharts';
 
 interface EggProduction {
@@ -177,7 +177,6 @@ export default function EggsPage() {
   });
 
   const s = stats;
-  const fmt = (n: number) => `KSh ${Math.round(n).toLocaleString()}`;
 
   const SortTh = ({ label, field, className }: { label: string; field: SortKey; className?: string }) => (
     <th className={`px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none ${className || ''}`}

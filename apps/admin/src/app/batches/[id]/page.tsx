@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { Badge, formatCurrency } from '@ecokuku/ui';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, Plus, Edit2, TrendingUp, AlertTriangle, Save, X,
+  ArrowLeft, Plus, Edit2, Save, X,
   Bird, Skull, Scale, Wheat, Syringe, ShoppingCart,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -26,8 +26,6 @@ interface MortalityLog { id: string; date: string; count: number; cause?: string
 interface GrowthLog { id: string; date: string; avgWeight: number | null; notes?: string; }
 interface VaccinationLog { id: string; vaccineType: string; dateAdministered: string; dosage?: string; administeredBy?: string; notes?: string; }
 interface FeedLog { id: string; feedType: string; recordedDate: string; quantityUsed: number; notes?: string; }
-interface OrderItem { id: string; quantity: number; price: number; subtotal: number; product: { name: string }; }
-interface Order { id: string; orderNumber: string; total: number; status: string; createdAt: string; items: OrderItem[]; customer: { name: string }; }
 
 const TABS = [
   { key: 'overview', label: 'Overview', icon: Bird },
@@ -50,7 +48,6 @@ export default function BatchDetailPage() {
   const [growthLogs, setGrowthLogs] = useState<GrowthLog[]>([]);
   const [vaccinationLogs, setVaccinationLogs] = useState<VaccinationLog[]>([]);
   const [feedLogs, setFeedLogs] = useState<FeedLog[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [isSaving, setIsSaving] = useState(false);

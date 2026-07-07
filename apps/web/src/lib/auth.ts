@@ -3,21 +3,12 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { db } from '@ecokuku/db';
 import bcrypt from 'bcryptjs';
 import { JWT } from 'next-auth/jwt';
-import { Session } from 'next-auth';
 
 interface CustomJWT extends JWT {
   role?: string;
   userId?: string;
 }
 
-interface CustomSession extends Session {
-  user?: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-  };
-}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -27,7 +18,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email', placeholder: 'email@example.com' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials, _req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Invalid credentials');
         }
@@ -78,7 +69,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
 
-    async session({ session, token }: { session: CustomSession; token: CustomJWT }) {
+    async session({ session, token }: { session: any; token: CustomJWT }) {
       if (session.user) {
         session.user.role = token.role || '';
         session.user.id = token.userId || '';
