@@ -290,10 +290,10 @@ export default function IncubationPage() {
   return (
     <div className="flex">
       <Sidebar />
-      <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
+      <main className="flex-1 min-w-0 lg:ml-64 min-h-screen bg-gray-100">
         <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold">Incubation Management</h1>
+            <h1 className="text-xl sm:text-3xl font-bold">Incubation Management</h1>
             <p className="text-gray-600 mt-1">Track eggs from incubator to farm batch</p>
           </div>
           <button onClick={() => {
@@ -459,8 +459,8 @@ export default function IncubationPage() {
                 <h2 className="font-bold text-xl">Start New Incubation</h2>
                 <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
               </div>
-              <form onSubmit={handleCreate} className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleCreate} className="p-4 sm:p-5 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Set Date *</label>
                     <input type="date" required value={formData.startDate}
@@ -492,7 +492,7 @@ export default function IncubationPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Temperature (°C)</label>
                     <input type="number" step="0.1" value={formData.temperature}
@@ -507,7 +507,7 @@ export default function IncubationPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Egg Source</label>
                     <select value={formData.eggSource}
@@ -683,7 +683,7 @@ export default function IncubationPage() {
                 </div>
                 <button onClick={() => setShowConvertModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
               </div>
-              <form onSubmit={handleConvertToFarmBatch} className="p-5 space-y-4">
+              <form onSubmit={handleConvertToFarmBatch} className="p-4 sm:p-5 space-y-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-start gap-2">
                   <CheckCircle size={18} className="text-green-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-green-800">
@@ -704,7 +704,7 @@ export default function IncubationPage() {
                     onChange={(e) => setConvertData({ ...convertData, batchNumber: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Batch Type *</label>
                     <select value={convertData.type} onChange={(e) => setConvertData({ ...convertData, type: e.target.value })}

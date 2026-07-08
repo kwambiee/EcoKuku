@@ -279,6 +279,7 @@ model Batch {
   currentCount  Int         // Current count (after mortality)
   breed         String?
   source        String?     // Origin of chicks (e.g. "Incubation INC-24/06/2026-01" or "Purchased")
+  incubationBatchId String? // Set when created via move_to_farm from an IncubationBatch
   supplier      String?     // Supplier name if purchased
   coopAssignment String?    // Coop / house / brooder assigned
   acquisitionCost Decimal?  @db.Decimal(10, 2) // Total purchase/hatching cost

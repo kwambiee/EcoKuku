@@ -64,7 +64,7 @@ export default function DashboardPage() {
   return (
     <div className="flex">
       <Sidebar />
-      <main className="flex-1 lg:ml-64 min-h-screen bg-stone-50">
+      <main className="flex-1 min-w-0 lg:ml-64 min-h-screen bg-stone-50">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0 flex flex-wrap items-center justify-between gap-3">
           <div>

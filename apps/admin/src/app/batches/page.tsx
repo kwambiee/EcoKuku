@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Badge } from '@ecokuku/ui';
 import { toast } from 'sonner';
-import { Plus, Bird, AlertTriangle, Search, ArrowUpDown, X, TrendingDown, ShieldAlert } from 'lucide-react';
+import { Plus, Bird, AlertTriangle, Search, ArrowUpDown, X, TrendingDown, ShieldAlert, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface Batch {
@@ -146,13 +146,16 @@ export default function BatchesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ batchId: deletingBatch.id }),
       });
-      if (!res.ok) throw new Error('Failed to delete');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${res.status}`);
+      }
       toast.success(`${deletingBatch.batchNumber} deleted`);
       setShowDeleteModal(false);
       setDeletingBatch(null);
       fetchBatches();
-    } catch {
-      toast.error('Failed to delete batch');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete batch');
     } finally {
       setIsSaving(false);
     }
@@ -207,7 +210,7 @@ export default function BatchesPage() {
   return (
     <div className="flex">
       <Sidebar />
-      <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
+      <main className="flex-1 min-w-0 lg:ml-64 min-h-screen bg-gray-100">
         <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Bird size={28} className="text-green-700" />
@@ -366,12 +369,10 @@ export default function BatchesPage() {
                                   className="px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition">
                                   Edit
                                 </Link>
-                                {batch.status === 'SOLD_OUT' && (
-                                  <button onClick={() => { setDeletingBatch(batch); setShowDeleteModal(true); }}
-                                    className="px-2.5 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition">
-                                    Cull
-                                  </button>
-                                )}
+                                <button onClick={() => { setDeletingBatch(batch); setShowDeleteModal(true); }}
+                                  className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete batch">
+                                  <Trash2 size={14} />
+                                </button>
                               </div>
                             </td>
                           </tr>

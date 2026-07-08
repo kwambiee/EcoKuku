@@ -90,6 +90,7 @@ export async function PATCH(
           startDate: new Date(),
           status: 'ACTIVE',
           source: 'INCUBATION',
+          incubationBatchId: id,
           coopAssignment: coopAssignment || null,
           notes: moveNotes || `Hatched from ${incBatch.batchNumber}. ${incBatch.eggCount} eggs → ${incBatch.hatchedCount} hatched (${Math.round((incBatch.hatchedCount / incBatch.eggCount) * 100)}% rate). ${incBatch.weakChicks > 0 ? `${incBatch.weakChicks} weak/deformed.` : ''}`,
         },

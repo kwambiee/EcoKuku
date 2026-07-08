@@ -114,7 +114,26 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'batchId required' }, { status: 400 });
     }
 
-    await db.incubationBatch.delete({ where: { id: body.batchId } });
+    await db.$transaction(async (tx) => {
+      // Delete linked farm batch if created from this incubation
+      const linkedFarmBatch = await tx.batch.findFirst({
+        where: { incubationBatchId: body.batchId },
+        select: { id: true },
+      });
+      if (linkedFarmBatch) {
+        const batchOrders = await tx.batchOrder.findMany({
+          where: { batchId: linkedFarmBatch.id },
+          select: { id: true },
+        });
+        const batchOrderIds = batchOrders.map((o: { id: string }) => o.id);
+        if (batchOrderIds.length > 0) {
+          await tx.batchOrderUpdate.deleteMany({ where: { batchOrderId: { in: batchOrderIds } } });
+          await tx.batchOrder.deleteMany({ where: { id: { in: batchOrderIds } } });
+        }
+        await tx.batch.delete({ where: { id: linkedFarmBatch.id } });
+      }
+      await tx.incubationBatch.delete({ where: { id: body.batchId } });
+    });
     return NextResponse.json({ message: 'Incubation batch deleted' });
   } catch (error) {
     console.error('Incubation batch delete error:', error);

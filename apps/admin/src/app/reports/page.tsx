@@ -302,7 +302,7 @@ ${data.topCustomers.map((c, i) => `<tr><td>#${i + 1} ${c.name}</td><td class="te
   return (
     <div className="flex">
       <Sidebar />
-      <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
+      <main className="flex-1 min-w-0 lg:ml-64 min-h-screen bg-gray-100">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0">
           <div className="flex flex-wrap items-start justify-between gap-4">

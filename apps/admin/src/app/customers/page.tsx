@@ -108,7 +108,7 @@ export default function CustomersPage() {
   return (
     <div className="flex">
       <Sidebar />
-      <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
+      <main className="flex-1 min-w-0 lg:ml-64 min-h-screen bg-gray-100">
         <div className="bg-white border-b border-gray-200 p-4 sm:p-6 mt-14 lg:mt-0">
           <h1 className="text-2xl font-bold">Customer Management</h1>
           <p className="text-gray-500 text-sm mt-1">Track customers, segments, lifetime value, and outstanding balances</p>

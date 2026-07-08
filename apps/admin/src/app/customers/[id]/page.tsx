@@ -129,7 +129,7 @@ export default function CustomerDetailPage() {
     return (
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100 p-4 mt-16 lg:mt-0">
+        <main className="flex-1 min-w-0 lg:ml-64 min-h-screen bg-gray-100 p-4 mt-16 lg:mt-0">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-gray-200 rounded w-1/3" />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">{[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-200 rounded-lg" />)}</div>
@@ -142,7 +142,7 @@ export default function CustomerDetailPage() {
 
   if (!customer) {
     return (
-      <div className="flex"><Sidebar /><main className="flex-1 lg:ml-64 min-h-screen bg-gray-100 p-8 text-center text-gray-600">Customer not found.</main></div>
+      <div className="flex"><Sidebar /><main className="flex-1 min-w-0 lg:ml-64 min-h-screen bg-gray-100 p-8 text-center text-gray-600">Customer not found.</main></div>
     );
   }
 
@@ -151,7 +151,7 @@ export default function CustomerDetailPage() {
   return (
     <div className="flex">
       <Sidebar />
-      <main className="flex-1 lg:ml-64 min-h-screen bg-gray-100">
+      <main className="flex-1 min-w-0 lg:ml-64 min-h-screen bg-gray-100">
         <div className="bg-white border-b border-gray-200 p-6 mt-16 lg:mt-0">
           <div className="flex items-center gap-4">
             <Link href="/customers" className="p-2 rounded-lg hover:bg-gray-100"><ArrowLeft size={20} className="text-gray-600" /></Link>
