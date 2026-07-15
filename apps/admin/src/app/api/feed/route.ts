@@ -250,16 +250,86 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(adminAuthOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await request.json();
+    const { logId, feedTypeName, quantityUsed, batchId, notes, date } = body;
+    if (!logId) return NextResponse.json({ error: 'logId required' }, { status: 400 });
+
+    const existing = await db.feedLog.findUnique({ where: { id: logId } });
+    if (!existing) return NextResponse.json({ error: 'Log not found' }, { status: 404 });
+
+    const oldQty = Number(existing.quantityUsed);
+    const newQty = quantityUsed !== undefined ? parseFloat(String(quantityUsed)) : oldQty;
+    const diff = newQty - oldQty; // positive = more used, negative = less used
+
+    // Adjust stock if quantity changed
+    if (diff !== 0) {
+      const typeName = feedTypeName || existing.feedType;
+      const feedType = await db.feedType.findFirst({ where: { name: typeName }, include: { stock: true } });
+      if (feedType?.stock[0]) {
+        const updatedStock = Math.max(0, Number(feedType.stock[0].quantity) - diff);
+        await db.feedStock.update({
+          where: { id: feedType.stock[0].id },
+          data: { quantity: updatedStock, lastUpdated: new Date() },
+        });
+      }
+    }
+
+    const log = await db.feedLog.update({
+      where: { id: logId },
+      data: {
+        ...(feedTypeName !== undefined && { feedType: feedTypeName }),
+        ...(quantityUsed !== undefined && { quantityUsed: newQty }),
+        ...(batchId !== undefined && { batchId: batchId || null }),
+        ...(notes !== undefined && { notes: notes || null }),
+        ...(date !== undefined && { recordedDate: new Date(date) }),
+      },
+      include: { batch: { select: { id: true, batchNumber: true } } },
+    });
+
+    return NextResponse.json({ log: { ...log, quantityUsed: Number(log.quantityUsed) } });
+  } catch (error: any) {
+    console.error('Feed PATCH error:', error);
+    return NextResponse.json({ error: error?.message || 'Failed to update log' }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(adminAuthOptions);
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    if (!body.feedTypeId) return NextResponse.json({ error: 'feedTypeId required' }, { status: 400 });
 
-    await db.feedType.delete({ where: { id: body.feedTypeId } });
-    return NextResponse.json({ message: 'Feed type deleted' });
+    // Delete a consumption log — restore stock
+    if (body.logId) {
+      const log = await db.feedLog.findUnique({ where: { id: body.logId } });
+      if (!log) return NextResponse.json({ error: 'Log not found' }, { status: 404 });
+
+      // Restore the consumed quantity back to stock
+      const feedType = await db.feedType.findFirst({ where: { name: log.feedType }, include: { stock: true } });
+      if (feedType?.stock[0]) {
+        await db.feedStock.update({
+          where: { id: feedType.stock[0].id },
+          data: { quantity: { increment: Number(log.quantityUsed) }, lastUpdated: new Date() },
+        });
+      }
+
+      await db.feedLog.delete({ where: { id: body.logId } });
+      return NextResponse.json({ message: 'Log deleted and stock restored' });
+    }
+
+    // Delete a feed type
+    if (body.feedTypeId) {
+      await db.feedType.delete({ where: { id: body.feedTypeId } });
+      return NextResponse.json({ message: 'Feed type deleted' });
+    }
+
+    return NextResponse.json({ error: 'logId or feedTypeId required' }, { status: 400 });
   } catch (error) {
     console.error('Feed DELETE error:', error);
     return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });

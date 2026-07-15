@@ -5,7 +5,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { toast } from 'sonner';
 import {
   Plus, AlertTriangle, Package, Trash2, ShoppingCart,
-  BookOpen, ChevronDown, ChevronUp, Info, Wheat,
+  BookOpen, ChevronDown, ChevronUp, Info, Wheat, Pencil, X,
 } from 'lucide-react';
 
 interface FeedInventory {
@@ -33,7 +33,11 @@ interface FeedStats {
   costPerBirdDay: number | null; totalDailyUsage: number;
 }
 
-type Action = 'idle' | 'purchase' | 'consume' | 'add_type';
+type Action = 'idle' | 'purchase' | 'consume' | 'add_type' | 'edit_log';
+
+function fmtKg(n: number) {
+  return n % 1 === 0 ? `${n}` : n.toFixed(2).replace(/\.?0+$/, '');
+}
 
 const FEEDING_GUIDE = [
   { age: 'Wk 1–2', feedType: 'Chick starter mash', gPerBird: '15–20g' },
@@ -66,6 +70,10 @@ export default function FeedPage() {
   const [action, setAction] = useState<Action>('idle');
   const [isSaving, setIsSaving] = useState(false);
   const [showFeedingGuide, setShowFeedingGuide] = useState(false);
+  const [editingLog, setEditingLog] = useState<FeedLog | null>(null);
+  const [editLogForm, setEditLogForm] = useState({
+    feedTypeName: '', quantityUsed: '', batchId: '', notes: '', date: '',
+  });
 
   const [purchaseForm, setPurchaseForm] = useState({
     feedTypeId: '', date: new Date().toISOString().split('T')[0], quantity: '',
@@ -148,6 +156,56 @@ export default function FeedPage() {
       fetchAll();
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed'); }
     finally { setIsSaving(false); }
+  };
+
+  const openEditLog = (log: FeedLog) => {
+    setEditingLog(log);
+    setEditLogForm({
+      feedTypeName: log.feedType,
+      quantityUsed: String(log.quantityUsed),
+      batchId: log.batch?.id || '',
+      notes: log.notes || '',
+      date: new Date(log.recordedDate).toISOString().split('T')[0],
+    });
+    setAction('edit_log');
+  };
+
+  const handleEditLog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLog) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/feed', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logId: editingLog.id, ...editLogForm }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to update');
+      toast.success('Log updated');
+      setAction('idle');
+      setEditingLog(null);
+      fetchAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deleteLog = async (log: FeedLog) => {
+    if (!confirm(`Delete this entry (${fmtKg(log.quantityUsed)} kg of ${log.feedType})? Stock will be restored.`)) return;
+    try {
+      const res = await fetch('/api/feed', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logId: log.id }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Entry deleted — stock restored');
+      fetchAll();
+    } catch {
+      toast.error('Failed to delete');
+    }
   };
 
   const deleteFeedType = async (id: string, name: string) => {
@@ -370,17 +428,18 @@ export default function FeedPage() {
                       <th className="px-4 py-3 text-left">Feed type</th>
                       <th className="px-4 py-3 text-right">Given (kg)</th>
                       <th className="px-4 py-3 text-left">Notes</th>
+                      <th className="px-4 py-3 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {logs.slice(0, 20).map((log) => {
                       const isWarning = log.notes && /reduc|refus|low|poor|weak|monitor/i.test(log.notes);
                       return (
-                        <tr key={log.id} className="hover:bg-gray-50">
+                        <tr key={log.id} className="hover:bg-gray-50 group">
                           <td className="px-4 py-3 text-sm">{new Date(log.recordedDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</td>
                           <td className="px-4 py-3 text-sm font-medium">{log.batch?.batchNumber || '—'}</td>
                           <td className="px-4 py-3 text-sm">{log.feedType}</td>
-                          <td className="px-4 py-3 text-right text-sm font-semibold">{Number(log.quantityUsed).toFixed(0)} kg</td>
+                          <td className="px-4 py-3 text-right text-sm font-semibold">{fmtKg(Number(log.quantityUsed))} kg</td>
                           <td className="px-4 py-3 text-sm">
                             {log.notes ? (
                               <span className={isWarning ? 'text-amber-600 font-medium' : 'text-gray-500'}>
@@ -389,6 +448,18 @@ export default function FeedPage() {
                             ) : (
                               <span className="text-gray-300">—</span>
                             )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => openEditLog(log)} title="Edit"
+                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                                <Pencil size={13} />
+                              </button>
+                              <button onClick={() => deleteLog(log)} title="Delete"
+                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -711,6 +782,74 @@ export default function FeedPage() {
                     {isSaving ? 'Saving...' : 'Log Consumption'}
                   </button>
                   <button type="button" onClick={() => setAction('idle')}
+                    className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT LOG MODAL */}
+        {action === 'edit_log' && editingLog && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+              <div className="p-5 border-b flex justify-between items-center">
+                <h2 className="font-bold text-xl">Edit Consumption Log</h2>
+                <button onClick={() => { setAction('idle'); setEditingLog(null); }}
+                  className="text-gray-400 hover:text-gray-600">
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={handleEditLog} className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
+                    <input type="date" required value={editLogForm.date}
+                      onChange={(e) => setEditLogForm({ ...editLogForm, date: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Batch</label>
+                    <select value={editLogForm.batchId}
+                      onChange={(e) => setEditLogForm({ ...editLogForm, batchId: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      <option value="">All batches / general</option>
+                      {batches.map((b) => <option key={b.id} value={b.id}>{b.batchNumber}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Feed Type *</label>
+                    <select required value={editLogForm.feedTypeName}
+                      onChange={(e) => setEditLogForm({ ...editLogForm, feedTypeName: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      <option value="">Select...</option>
+                      {inventory.map((f) => <option key={f.id} value={f.name}>{f.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Given (kg) *</label>
+                    <input type="number" step="0.1" required value={editLogForm.quantityUsed}
+                      onChange={(e) => setEditLogForm({ ...editLogForm, quantityUsed: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="e.g. 38" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Notes on appetite</label>
+                  <input type="text" value={editLogForm.notes}
+                    onChange={(e) => setEditLogForm({ ...editLogForm, notes: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="e.g. Normal appetite, Slightly reduced — monitor" />
+                </div>
+                <div className="flex gap-3">
+                  <button type="submit" disabled={isSaving}
+                    className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50">
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button type="button" onClick={() => { setAction('idle'); setEditingLog(null); }}
                     className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
                     Cancel
                   </button>
