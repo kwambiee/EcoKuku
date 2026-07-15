@@ -679,18 +679,36 @@ model Setting {
 
 model Goal {
   id        String       @id @default(cuid())
-  type      String       // WEEKLY, MONTHLY, YEARLY
-  category  String       // EGG_PRODUCTION, REVENUE, ORDERS, CHICK_COUNT, MORTALITY_RATE, FEED_USAGE, EXPENSES
-  target    Decimal      @db.Decimal(12, 2)
-  period    String       // "2026-W29" | "2026-07" | "2026"
+  type      String       // WEEKLY, MONTHLY
+  category  String       // EGG_PRODUCTION, FEED_USAGE, FLOCK_HEALTH, BROODER_CARE, ORDER_FULFILLMENT, REVENUE, EXPENSES, ORDERS, FLOCK_COUNT
+  target    Decimal?     @db.Decimal(12, 2)  // null for weekly (checklist-only)
+  period    String       // "2026-W29" | "2026-07"
   label     String?
   notes     String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
-  reviews   GoalReview[]
+  reviews     GoalReview[]
+  checkpoints GoalCheckpoint[]
 
   @@unique([category, period])
   @@index([type, period])
+}
+
+model GoalCheckpoint {
+  id           String   @id @default(cuid())
+  goalId       String
+  goal         Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  text         String
+  isCustom     Boolean  @default(false)
+  checked      Boolean  @default(false)
+  order        Int      @default(0)
+  positives    String?  @db.Text
+  challenges   String?  @db.Text
+  improvements String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([goalId])
 }
 
 model GoalReview {

@@ -124,25 +124,43 @@ export async function GET(request: NextRequest) {
 
     const periodFilter = type === 'WEEKLY' ? [periods.weekly]
       : type === 'MONTHLY' ? [periods.monthly]
-      : type === 'YEARLY' ? [periods.yearly]
-      : [periods.weekly, periods.monthly, periods.yearly];
+      : [periods.weekly, periods.monthly];
 
     const goals = await db.goal.findMany({
       where: { period: { in: periodFilter } },
-      include: { reviews: true },
+      include: {
+        reviews: true,
+        checkpoints: { orderBy: { order: 'asc' } },
+      },
       orderBy: { createdAt: 'asc' },
     });
 
     const goalsWithProgress = await Promise.all(
       goals.map(async (goal: any) => {
-        const actual = await calcActual(goal.category, goal.period);
-        const target = Number(goal.target);
-        const isLowerBetter = goal.category === 'MORTALITY_RATE' || goal.category === 'EXPENSES';
-        const pct = target > 0
-          ? isLowerBetter
-            ? Math.max(0, Math.round((1 - actual / target) * 100))
-            : Math.min(Math.round((actual / target) * 100), 999)
-          : 0;
+        const isWeeklyChecklist = goal.type === 'WEEKLY';
+        const target = goal.target !== null && goal.target !== undefined ? Number(goal.target) : null;
+
+        // Weekly checklist goals: progress = checkpoints completed %
+        // Monthly metric goals: progress = actual vs target
+        const checkpoints = (goal as any).checkpoints ?? [];
+        let actual = 0;
+        let pct = 0;
+
+        if (isWeeklyChecklist) {
+          const done = checkpoints.filter((c: any) => c.checked).length;
+          const total = checkpoints.length;
+          pct = total > 0 ? Math.round((done / total) * 100) : 0;
+          actual = done;
+        } else {
+          actual = await calcActual(goal.category, goal.period);
+          const isLowerBetter = goal.category === 'EXPENSES';
+          pct = target && target > 0
+            ? isLowerBetter
+              ? Math.max(0, Math.round((1 - actual / target) * 100))
+              : Math.min(Math.round((actual / target) * 100), 999)
+            : 0;
+        }
+        const isLowerBetter = goal.category === 'EXPENSES';
 
         // Last period comparison
         const lp = prevPeriod(goal.period);
@@ -167,7 +185,9 @@ export async function GET(request: NextRequest) {
           actual,
           progressPct: pct,
           isLowerBetter,
+          isWeeklyChecklist,
           review,
+          checkpoints,
           lastPeriod: lastPeriodGoal ? {
             period: lp,
             actual: lastPeriodActual,
@@ -214,14 +234,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { type, category, target, period, label, notes } = body;
 
-    if (!type || !category || !target || !period) {
-      return NextResponse.json({ error: 'type, category, target, period are required' }, { status: 400 });
+    if (!type || !category || !period) {
+      return NextResponse.json({ error: 'type, category, period are required' }, { status: 400 });
     }
+    // Weekly goals have no numeric target (checklist-based)
+    const targetVal = type === 'WEEKLY' ? null : (target ? parseFloat(String(target)) : null);
 
     const goal = await db.goal.upsert({
       where: { category_period: { category, period } },
-      create: { type, category, target: parseFloat(String(target)), period, label: label || null, notes: notes || null },
-      update: { target: parseFloat(String(target)), label: label || null, notes: notes || null },
+      create: { type, category, target: targetVal, period, label: label || null, notes: notes || null },
+      update: { target: targetVal, label: label || null, notes: notes || null },
     });
 
     return NextResponse.json({ message: 'Goal saved', goal }, { status: 201 });
@@ -243,7 +265,7 @@ export async function PATCH(request: NextRequest) {
     const goal = await db.goal.update({
       where: { id: goalId },
       data: {
-        ...(target !== undefined && { target: parseFloat(String(target)) }),
+        ...(target !== undefined && { target: target !== null ? parseFloat(String(target)) : null }),
         ...(label !== undefined && { label: label || null }),
         ...(notes !== undefined && { notes: notes || null }),
       },
