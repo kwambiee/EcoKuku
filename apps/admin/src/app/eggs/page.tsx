@@ -38,6 +38,59 @@ const SIZE_COLORS: Record<string, string> = {
   Medium: 'bg-green-100 text-green-800', Small: 'bg-yellow-100 text-yellow-800',
 };
 
+type FormData = {
+  date: string; batchId: string; collected: string; broken: string;
+  cracked: string; eggSize: string; collectionTime: string;
+  collectedBy: string; storageLocation: string; notes: string;
+};
+
+function FormFields({ data, setData, batches }: {
+  data: FormData;
+  setData: (d: FormData) => void;
+  batches: Batch[];
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
+          <input type="date" required value={data.date} onChange={(e) => setData({ ...data, date: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Batch</label>
+          <select value={data.batchId} onChange={(e) => setData({ ...data, batchId: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="">All / No batch</option>
+            {batches.map((b) => <option key={b.id} value={b.id}>{b.batchNumber}</option>)}
+          </select></div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Collection Round</label>
+          <select value={data.collectionTime} onChange={(e) => setData({ ...data, collectionTime: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
+            {COLLECTION_ROUNDS.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Eggs Collected *</label>
+          <input type="number" required min="0" value={data.collected} onChange={(e) => setData({ ...data, collected: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Broken</label>
+          <input type="number" min="0" value={data.broken} onChange={(e) => setData({ ...data, broken: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Cracked</label>
+          <input type="number" min="0" value={data.cracked} onChange={(e) => setData({ ...data, cracked: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Size Grade</label>
+          <select value={data.eggSize} onChange={(e) => setData({ ...data, eggSize: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="">—</option>
+            {SIZE_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+          </select></div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Collected By</label>
+          <input type="text" value={data.collectedBy} onChange={(e) => setData({ ...data, collectedBy: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Staff name" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Storage Location</label>
+          <input type="text" value={data.storageLocation} onChange={(e) => setData({ ...data, storageLocation: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Cold room A" /></div>
+      </div>
+      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Notes</label>
+        <textarea rows={2} value={data.notes} onChange={(e) => setData({ ...data, notes: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm resize-none" placeholder="Any observations..." /></div>
+    </div>
+  );
+}
+
 export default function EggsPage() {
   const [eggs, setEggs] = useState<EggProduction[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -185,47 +238,6 @@ export default function EggsPage() {
         <ArrowUpDown size={10} className={sortKey === field ? 'text-green-700' : 'text-gray-300'} />
       </span>
     </th>
-  );
-
-  const FormFields = ({ data, setData }: { data: typeof emptyForm; setData: (d: typeof emptyForm) => void }) => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
-          <input type="date" required value={data.date} onChange={(e) => setData({ ...data, date: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
-        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Batch</label>
-          <select value={data.batchId} onChange={(e) => setData({ ...data, batchId: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
-            <option value="">All / No batch</option>
-            {batches.map((b) => <option key={b.id} value={b.id}>{b.batchNumber}</option>)}
-          </select></div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Collection Round</label>
-          <select value={data.collectionTime} onChange={(e) => setData({ ...data, collectionTime: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
-            {COLLECTION_ROUNDS.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select></div>
-        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Eggs Collected *</label>
-          <input type="number" required min="0" value={data.collected} onChange={(e) => setData({ ...data, collected: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Broken</label>
-          <input type="number" min="0" value={data.broken} onChange={(e) => setData({ ...data, broken: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
-        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Cracked</label>
-          <input type="number" min="0" value={data.cracked} onChange={(e) => setData({ ...data, cracked: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
-        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Size Grade</label>
-          <select value={data.eggSize} onChange={(e) => setData({ ...data, eggSize: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
-            <option value="">—</option>
-            {SIZE_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select></div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Collected By</label>
-          <input type="text" value={data.collectedBy} onChange={(e) => setData({ ...data, collectedBy: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Staff name" /></div>
-        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Storage Location</label>
-          <input type="text" value={data.storageLocation} onChange={(e) => setData({ ...data, storageLocation: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Cold room A" /></div>
-      </div>
-      <div><label className="block text-sm font-semibold text-gray-700 mb-1">Notes</label>
-        <textarea rows={2} value={data.notes} onChange={(e) => setData({ ...data, notes: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm resize-none" placeholder="Any observations..." /></div>
-    </div>
   );
 
   return (
@@ -501,7 +513,7 @@ export default function EggsPage() {
                 <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
               </div>
               <form onSubmit={handleSubmit} className="p-5">
-                <FormFields data={formData} setData={setFormData} />
+                <FormFields data={formData} setData={setFormData} batches={batches} />
                 <div className="flex gap-3 mt-5">
                   <button type="submit" className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700">Log Collection</button>
                   <button type="button" onClick={() => setShowForm(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">Cancel</button>
@@ -520,7 +532,7 @@ export default function EggsPage() {
                 <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
               </div>
               <form onSubmit={handleUpdate} className="p-5">
-                <FormFields data={editData} setData={setEditData} />
+                <FormFields data={editData} setData={setEditData} batches={batches} />
                 <div className="flex gap-3 mt-5">
                   <button type="submit" className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700">Update</button>
                   <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">Cancel</button>
