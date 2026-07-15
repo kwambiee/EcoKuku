@@ -99,6 +99,20 @@ async function calcActual(category: string, period: string): Promise<number> {
   }
 }
 
+function prevPeriod(period: string): string {
+  if (/^\d{4}-W\d{2}$/.test(period)) {
+    const [year, week] = period.split('-W').map(Number);
+    if (week === 1) return `${year - 1}-W52`;
+    return `${year}-W${String(week - 1).padStart(2, '0')}`;
+  }
+  if (/^\d{4}-\d{2}$/.test(period)) {
+    const [year, month] = period.split('-').map(Number);
+    if (month === 1) return `${year - 1}-12`;
+    return `${year}-${String(month - 1).padStart(2, '0')}`;
+  }
+  return `${parseInt(period) - 1}`;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(adminAuthOptions);
@@ -106,7 +120,7 @@ export async function GET(request: NextRequest) {
 
     const periods = currentPeriods();
     const searchParams = request.nextUrl.searchParams;
-    const type = searchParams.get('type'); // WEEKLY, MONTHLY, YEARLY, or null (all)
+    const type = searchParams.get('type');
 
     const periodFilter = type === 'WEEKLY' ? [periods.weekly]
       : type === 'MONTHLY' ? [periods.monthly]
@@ -115,6 +129,7 @@ export async function GET(request: NextRequest) {
 
     const goals = await db.goal.findMany({
       where: { period: { in: periodFilter } },
+      include: { reviews: true },
       orderBy: { createdAt: 'asc' },
     });
 
@@ -128,11 +143,63 @@ export async function GET(request: NextRequest) {
             ? Math.max(0, Math.round((1 - actual / target) * 100))
             : Math.min(Math.round((actual / target) * 100), 999)
           : 0;
-        return { ...goal, target, actual, progressPct: pct, isLowerBetter };
+
+        // Last period comparison
+        const lp = prevPeriod(goal.period);
+        const lastPeriodGoal = await db.goal.findUnique({
+          where: { category_period: { category: goal.category, period: lp } },
+          include: { reviews: { where: { period: lp } } },
+        });
+        let lastPeriodActual: number | null = null;
+        let lastPeriodTarget: number | null = null;
+        let lastPeriodStatus: string | null = null;
+        if (lastPeriodGoal) {
+          lastPeriodActual = await calcActual(goal.category, lp);
+          lastPeriodTarget = Number(lastPeriodGoal.target);
+          lastPeriodStatus = lastPeriodGoal.reviews[0]?.status ?? null;
+        }
+
+        const review = goal.reviews.find((r: any) => r.period === goal.period) ?? null;
+
+        return {
+          ...goal,
+          target,
+          actual,
+          progressPct: pct,
+          isLowerBetter,
+          review,
+          lastPeriod: lastPeriodGoal ? {
+            period: lp,
+            actual: lastPeriodActual,
+            target: lastPeriodTarget,
+            status: lastPeriodStatus,
+          } : null,
+        };
       })
     );
 
-    return NextResponse.json({ data: goalsWithProgress, periods });
+    // For monthly: compute weekly breakdown
+    let weeklyBreakdown: any[] | null = null;
+    if (type === 'MONTHLY') {
+      const [year, month] = periods.monthly.split('-').map(Number);
+      const jan4 = new Date(year, 0, 4);
+      const startOfWeek1 = new Date(jan4);
+      startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+      const monthStart = new Date(year, month - 1, 1);
+      const monthEnd = new Date(year, month, 0);
+      // Find all weekly periods that overlap with this month
+      const weeks: string[] = [];
+      const cur = new Date(monthStart);
+      while (cur <= monthEnd) {
+        const wn = Math.ceil(((cur.getTime() - startOfWeek1.getTime()) / 86400000 + 1) / 7);
+        const wp = `${year}-W${String(wn).padStart(2, '0')}`;
+        if (!weeks.includes(wp)) weeks.push(wp);
+        cur.setDate(cur.getDate() + 7);
+      }
+      weeklyBreakdown = weeks.map((w) => ({ period: w }));
+    }
+
+    return NextResponse.json({ data: goalsWithProgress, periods, weeklyBreakdown });
   } catch (error) {
     console.error('Goals fetch error:', error);
     return NextResponse.json({ error: 'Failed to fetch goals' }, { status: 500 });
@@ -161,6 +228,30 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Goal create error:', error);
     return NextResponse.json({ error: error?.message || 'Failed to save goal' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(adminAuthOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await request.json();
+    const { goalId, target, label, notes } = body;
+    if (!goalId) return NextResponse.json({ error: 'goalId required' }, { status: 400 });
+
+    const goal = await db.goal.update({
+      where: { id: goalId },
+      data: {
+        ...(target !== undefined && { target: parseFloat(String(target)) }),
+        ...(label !== undefined && { label: label || null }),
+        ...(notes !== undefined && { notes: notes || null }),
+      },
+    });
+    return NextResponse.json({ message: 'Goal updated', goal });
+  } catch (error: any) {
+    console.error('Goal update error:', error);
+    return NextResponse.json({ error: error?.message || 'Failed to update goal' }, { status: 500 });
   }
 }
 
