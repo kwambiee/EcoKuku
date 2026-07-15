@@ -14,6 +14,65 @@ const VACCINE_SCHEDULE = [
   { vaccine: 'Fowl Pox', daysOld: 42 },
 ];
 
+async function getWeeklyGoals(weekStart: Date, now: Date) {
+  try {
+    const year = now.getFullYear();
+    const jan4 = new Date(year, 0, 4);
+    const startOfWeek1 = new Date(jan4);
+    startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+    const weekNum = Math.ceil(((now.getTime() - startOfWeek1.getTime()) / 86400000 + 1) / 7);
+    const period = `${year}-W${String(weekNum).padStart(2, '0')}`;
+    const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
+
+    const goals = await db.goal.findMany({ where: { type: 'WEEKLY', period } });
+    if (goals.length === 0) return [];
+
+    const daysElapsed = Math.max(1, Math.ceil((now.getTime() - weekStart.getTime()) / 86400000));
+    const daysRemaining = Math.max(0, 7 - daysElapsed);
+
+    return Promise.all(goals.map(async (goal: any) => {
+      let actual = 0;
+      const target = Number(goal.target);
+
+      try {
+        if (goal.category === 'EGG_PRODUCTION') {
+          const r = await db.eggProduction.aggregate({ where: { date: { gte: weekStart, lt: weekEnd } }, _sum: { collected: true } });
+          actual = r._sum.collected || 0;
+        } else if (goal.category === 'REVENUE') {
+          const r = await db.order.aggregate({ where: { createdAt: { gte: weekStart, lt: weekEnd }, status: { in: ['PAID', 'PROCESSING', 'PACKED', 'OUT_FOR_DELIVERY', 'DELIVERED'] } }, _sum: { total: true } });
+          actual = Number(r._sum.total || 0);
+        } else if (goal.category === 'ORDERS') {
+          actual = await db.order.count({ where: { createdAt: { gte: weekStart, lt: weekEnd } } });
+        } else if (goal.category === 'CHICK_COUNT') {
+          const r = await db.batch.aggregate({ where: { startDate: { gte: weekStart, lt: weekEnd } }, _sum: { quantity: true } });
+          actual = r._sum.quantity || 0;
+        } else if (goal.category === 'EXPENSES') {
+          const r = await db.expense.aggregate({ where: { date: { gte: weekStart, lt: weekEnd } }, _sum: { amount: true } });
+          actual = Number(r._sum.amount || 0);
+        }
+      } catch { actual = 0; }
+
+      const isLowerBetter = goal.category === 'MORTALITY_RATE' || goal.category === 'EXPENSES';
+      const progressPct = target > 0 ? Math.min(Math.round((actual / target) * 100), 999) : 0;
+      const currentPace = daysElapsed > 0 ? Math.round(actual / daysElapsed) : 0;
+      const neededPace = daysRemaining > 0 ? Math.round((target - actual) / daysRemaining) : 0;
+
+      return {
+        id: goal.id,
+        category: goal.category,
+        label: goal.label,
+        target,
+        actual,
+        progressPct,
+        isLowerBetter,
+        currentPace,
+        neededPace,
+        daysRemaining,
+      };
+    }));
+  } catch { return []; }
+}
+
 export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(adminAuthOptions);
@@ -436,6 +495,7 @@ export async function GET(_request: NextRequest) {
       inventorySnapshot: inventorySnapshot.slice(0, 5),
       preOrders: preOrderSummary,
       lowStockProducts,
+      weeklyGoals: await getWeeklyGoals(weekStart, now),
     });
   } catch (error: any) {
     console.error('Dashboard API error:', error);

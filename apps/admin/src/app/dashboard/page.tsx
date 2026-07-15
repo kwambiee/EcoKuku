@@ -7,7 +7,7 @@ import Link from 'next/link';
 import {
   DollarSign, ShoppingCart, Egg, Bird, Wheat, CreditCard,
   Bell, CheckCircle, Circle, AlertTriangle, Clock,
-  ArrowRight, TrendingUp, TrendingDown, Package, BarChart3,
+  ArrowRight, TrendingUp, TrendingDown, Package, BarChart3, Target,
 } from 'lucide-react';
 
 interface DashboardData {
@@ -29,6 +29,10 @@ interface DashboardData {
   inventorySnapshot: { name: string; value: string; warning?: boolean }[];
   preOrders: { count: number; nextFulfilment: string | null; items: { description: string }[] };
   lowStockProducts: { id: string; name: string; stock: number; category: string }[];
+  weeklyGoals: {
+    id: string; category: string; label: string | null; target: number; actual: number;
+    progressPct: number; isLowerBetter: boolean; currentPace: number; neededPace: number; daysRemaining: number;
+  }[];
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -240,6 +244,58 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
+
+            {/* Weekly Goals */}
+            {data.weeklyGoals && data.weeklyGoals.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">This Week&apos;s Goals</p>
+                  <Link href="/goals" className="text-xs text-green-700 font-medium hover:text-green-900 flex items-center gap-1">
+                    Manage goals <ArrowRight size={12} />
+                  </Link>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {data.weeklyGoals.map((goal) => {
+                    const pct = goal.progressPct;
+                    const onTrack = pct >= 100;
+                    const good = pct >= 70;
+                    const atRisk = pct >= 40;
+                    const barColor = onTrack ? 'bg-green-500' : good ? 'bg-green-400' : atRisk ? 'bg-amber-400' : 'bg-red-400';
+                    const textColor = onTrack ? 'text-green-700' : good ? 'text-green-600' : atRisk ? 'text-amber-600' : 'text-red-600';
+                    const CATEGORY_LABELS: Record<string, string> = {
+                      EGG_PRODUCTION: 'Egg Production', REVENUE: 'Revenue', ORDERS: 'Orders',
+                      CHICK_COUNT: 'Chick Count', MORTALITY_RATE: 'Mortality Rate',
+                      EXPENSES: 'Expenses', FEED_USAGE: 'Feed Usage',
+                    };
+                    const isCurrency = goal.category === 'REVENUE' || goal.category === 'EXPENSES';
+                    const fmt = (v: number) => isCurrency ? formatCurrency(v) : v.toLocaleString();
+                    return (
+                      <div key={goal.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Target size={13} className="text-gray-400" />
+                            <span className="text-xs font-semibold text-gray-600">
+                              {goal.label || CATEGORY_LABELS[goal.category] || goal.category}
+                            </span>
+                          </div>
+                          <span className={`text-xs font-bold ${textColor}`}>{pct}%</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5 mb-2">
+                          <div className={`h-1.5 rounded-full transition-all ${barColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-gray-500">
+                          <span>{fmt(goal.actual)} <span className="text-gray-400">of</span> {fmt(goal.target)}</span>
+                          {goal.daysRemaining > 0 && !onTrack && (
+                            <span className={textColor}>need {fmt(goal.neededPace)}/day</span>
+                          )}
+                          {onTrack && <span className="text-green-600 font-medium">On track ✓</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Recent Orders + Eggs This Week */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
