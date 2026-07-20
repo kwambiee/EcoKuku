@@ -192,20 +192,28 @@ export default function FeedPage() {
     }
   };
 
-  const deleteLog = async (log: FeedLog) => {
-    if (!confirm(`Delete this entry (${fmtKg(log.quantityUsed)} kg of ${log.feedType})? Stock will be restored.`)) return;
-    try {
-      const res = await fetch('/api/feed', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logId: log.id }),
-      });
-      if (!res.ok) throw new Error();
-      toast.success('Entry deleted — stock restored');
-      fetchAll();
-    } catch {
-      toast.error('Failed to delete');
-    }
+  const deleteLog = (log: FeedLog) => {
+    toast(`Delete ${fmtKg(log.quantityUsed)} kg of ${log.feedType}?`, {
+      description: 'This will restore the consumed quantity back to stock.',
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          try {
+            const res = await fetch('/api/feed', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ logId: log.id }),
+            });
+            if (!res.ok) throw new Error();
+            toast.success('Entry deleted — stock restored');
+            fetchAll();
+          } catch {
+            toast.error('Failed to delete');
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const deleteFeedType = async (id: string, name: string) => {

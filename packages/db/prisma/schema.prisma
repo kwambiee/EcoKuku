@@ -563,6 +563,34 @@ enum ExpenseCategory {
   OTHER
 }
 
+enum IncomeCategory {
+  EGGS_SALE
+  LIVE_BIRDS_SALE
+  CHICKS_SALE
+  MANURE_SALE
+  BATCH_ORDER_DEPOSIT
+  OTHER
+}
+
+model Income {
+  id            String         @id @default(cuid())
+  date          DateTime       @default(now())
+  category      IncomeCategory
+  description   String
+  amount        Decimal        @db.Decimal(10, 2)
+  paymentMethod String?        // CASH, MPESA, BANK_TRANSFER
+  buyerName     String?
+  receiptRef    String?
+  notes         String?
+  sourceType    String?        // MANUAL, ORDER, BATCH_ORDER
+  sourceId      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([category])
+  @@index([date])
+}
+
 model MonthlyBudget {
   id        String   @id @default(cuid())
   month     Int      // 1–12

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Badge } from '@ecokuku/ui';
-import { Plus, Syringe, Calendar, CheckCircle, Clock, AlertTriangle, Info, X, Stethoscope, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Syringe, Calendar, CheckCircle, Clock, AlertTriangle, Info, X, Stethoscope, ShieldAlert, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Batch {
@@ -22,7 +22,7 @@ interface VaccinationLog {
   administeredBy?: string;
   batchNo?: string;
   notes?: string;
-  batch?: { batchNumber: string };
+  batch?: { id: string; batchNumber: string };
 }
 
 interface VaccineScheduleItem {
@@ -224,6 +224,10 @@ export default function HealthPage() {
   const [showSchedule, setShowSchedule] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
   const [showDiseaseLog, setShowDiseaseLog] = useState(true);
+  const [editingLog, setEditingLog] = useState<VaccinationLog | null>(null);
+  const [editForm, setEditForm] = useState({
+    vaccineType: '', dateAdministered: '', batchId: '', dosage: '', administeredBy: '', notes: '',
+  });
 
   const emptyDiseaseForm = {
     batchId: '', type: 'disease', date: new Date().toISOString().split('T')[0],
@@ -314,6 +318,71 @@ export default function HealthPage() {
     } catch {
       console.error('Failed to load batches');
     }
+  };
+
+  const openEditLog = (log: VaccinationLog) => {
+    setEditingLog(log);
+    setEditForm({
+      vaccineType: log.vaccineType,
+      dateAdministered: new Date(log.dateAdministered).toISOString().split('T')[0],
+      batchId: log.batch?.id || '',
+      dosage: log.dosage || '',
+      administeredBy: log.administeredBy || '',
+      notes: log.notes || '',
+    });
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLog) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/health-logs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vaccinationId: editingLog.id,
+          vaccineType: editForm.vaccineType,
+          dateAdministered: editForm.dateAdministered,
+          batchId: editForm.batchId || null,
+          dosage: editForm.dosage || null,
+          administeredBy: editForm.administeredBy || null,
+          notes: editForm.notes || null,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+      toast.success('Vaccination updated');
+      setEditingLog(null);
+      fetchLogs();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteLog = (log: VaccinationLog) => {
+    toast(`Delete ${log.vaccineType} record?`, {
+      description: `${log.batch?.batchNumber || 'All batches'} · ${new Date(log.dateAdministered).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          try {
+            const res = await fetch('/api/health-logs', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ vaccinationId: log.id }),
+            });
+            if (!res.ok) throw new Error();
+            toast.success('Vaccination record deleted');
+            fetchLogs();
+          } catch {
+            toast.error('Failed to delete');
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -620,16 +689,17 @@ export default function HealthPage() {
                     <th className="px-4 py-3 text-left">Dosage</th>
                     <th className="px-4 py-3 text-left">Administered By</th>
                     <th className="px-4 py-3 text-left">Notes</th>
+                    <th className="px-4 py-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {isLoading ? (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">Loading...</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">Loading...</td></tr>
                   ) : logs.length === 0 ? (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No vaccination records yet. Log your first vaccination above.</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">No vaccination records yet. Log your first vaccination above.</td></tr>
                   ) : (
                     logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-50">
+                      <tr key={log.id} className="hover:bg-gray-50 group">
                         <td className="px-4 py-3 text-sm">{new Date(log.dateAdministered).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                         <td className="px-4 py-3 font-medium text-sm text-gray-900">{log.vaccineType}</td>
                         <td className="px-4 py-3 text-sm">
@@ -640,6 +710,18 @@ export default function HealthPage() {
                         <td className="px-4 py-3 text-sm text-gray-700">{log.dosage || '—'}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{log.administeredBy || '—'}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{log.notes || '—'}</td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openEditLog(log)} title="Edit"
+                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                              <Pencil size={13} />
+                            </button>
+                            <button onClick={() => handleDeleteLog(log)} title="Delete"
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -1171,6 +1253,78 @@ export default function HealthPage() {
                     onClick={() => setShowForm(false)}
                     className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
                   >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT VACCINATION MODAL */}
+        {editingLog && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+              <div className="p-5 border-b flex justify-between items-center">
+                <h2 className="font-bold text-xl">Edit Vaccination Record</h2>
+                <button onClick={() => setEditingLog(null)} className="text-gray-400 hover:text-gray-600">
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={handleEditSave} className="p-5 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Vaccine *</label>
+                  <input type="text" required value={editForm.vaccineType}
+                    onChange={(e) => setEditForm({ ...editForm, vaccineType: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
+                    <input type="date" required value={editForm.dateAdministered}
+                      onChange={(e) => setEditForm({ ...editForm, dateAdministered: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Batch</label>
+                    <select value={editForm.batchId}
+                      onChange={(e) => setEditForm({ ...editForm, batchId: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      <option value="">All batches</option>
+                      {batches.map((b) => <option key={b.id} value={b.id}>{b.batchNumber}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Dosage</label>
+                    <input type="text" value={editForm.dosage}
+                      onChange={(e) => setEditForm({ ...editForm, dosage: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="e.g. 1 drop per bird" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Administered By</label>
+                    <input type="text" value={editForm.administeredBy}
+                      onChange={(e) => setEditForm({ ...editForm, administeredBy: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Name or role" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Notes</label>
+                  <textarea rows={2} value={editForm.notes}
+                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+                    placeholder="Any observations..." />
+                </div>
+                <div className="flex gap-3">
+                  <button type="submit" disabled={isSubmitting}
+                    className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50">
+                    {isSubmitting ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button type="button" onClick={() => setEditingLog(null)}
+                    className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
                     Cancel
                   </button>
                 </div>

@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { Badge, formatCurrency } from '@ecokuku/ui';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, Plus, Edit2, Save, X,
+  ArrowLeft, Plus, Edit2, Save, X, Pencil, Trash2,
   Bird, Skull, Scale, Wheat, Syringe, ShoppingCart,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -58,6 +58,8 @@ export default function BatchDetailPage() {
   const [editData, setEditData] = useState<any>({});
   const [mortalityForm, setMortalityForm] = useState({ date: new Date().toISOString().split('T')[0], count: '', cause: '', notes: '' });
   const [growthForm, setGrowthForm] = useState({ date: new Date().toISOString().split('T')[0], avgWeight: '', notes: '' });
+  const [editingVax, setEditingVax] = useState<VaccinationLog | null>(null);
+  const [editVaxForm, setEditVaxForm] = useState({ vaccineType: '', dateAdministered: '', dosage: '', administeredBy: '', notes: '' });
 
   const fetchAll = async () => {
     setLoading(true);
@@ -164,6 +166,67 @@ export default function BatchDetailPage() {
       fetchAll();
     } catch { toast.error('Failed to record growth'); }
     finally { setIsSaving(false); }
+  };
+
+  const openEditVax = (v: VaccinationLog) => {
+    setEditingVax(v);
+    setEditVaxForm({
+      vaccineType: v.vaccineType,
+      dateAdministered: new Date(v.dateAdministered).toISOString().split('T')[0],
+      dosage: v.dosage || '',
+      administeredBy: v.administeredBy || '',
+      notes: v.notes || '',
+    });
+  };
+
+  const handleEditVaxSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVax) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/health-logs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vaccinationId: editingVax.id,
+          vaccineType: editVaxForm.vaccineType,
+          dateAdministered: editVaxForm.dateAdministered,
+          dosage: editVaxForm.dosage || null,
+          administeredBy: editVaxForm.administeredBy || null,
+          notes: editVaxForm.notes || null,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+      toast.success('Vaccination updated');
+      setEditingVax(null);
+      fetchAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteVax = (v: VaccinationLog) => {
+    toast(`Delete ${v.vaccineType} record?`, {
+      description: new Date(v.dateAdministered).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }),
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          try {
+            const res = await fetch('/api/health-logs', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ vaccinationId: v.id }),
+            });
+            if (!res.ok) throw new Error();
+            toast.success('Vaccination record deleted');
+            fetchAll();
+          } catch { toast.error('Failed to delete'); }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   if (loading) {
@@ -450,17 +513,29 @@ export default function BatchDetailPage() {
               <div className="overflow-x-auto bg-white rounded-xl border">
                 <table className="w-full min-w-max">
                   <thead className="bg-gray-50 border-b text-xs uppercase text-gray-600"><tr>
-                    <th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-left">Vaccine</th><th className="px-4 py-3 text-left">Dosage</th><th className="px-4 py-3 text-left">Administered By</th><th className="px-4 py-3 text-left">Notes</th>
+                    <th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-left">Vaccine</th><th className="px-4 py-3 text-left">Dosage</th><th className="px-4 py-3 text-left">Administered By</th><th className="px-4 py-3 text-left">Notes</th><th className="px-4 py-3 text-center">Actions</th>
                   </tr></thead>
                   <tbody className="divide-y">
-                    {vaccinationLogs.length === 0 ? <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No vaccinations logged for this batch</td></tr> :
+                    {vaccinationLogs.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No vaccinations logged for this batch</td></tr> :
                       vaccinationLogs.map((v) => (
-                        <tr key={v.id} className="hover:bg-gray-50">
+                        <tr key={v.id} className="hover:bg-gray-50 group">
                           <td className="px-4 py-3 text-sm">{new Date(v.dateAdministered).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</td>
                           <td className="px-4 py-3 text-sm font-medium">{v.vaccineType}</td>
                           <td className="px-4 py-3 text-sm text-gray-600">{v.dosage || '—'}</td>
                           <td className="px-4 py-3 text-sm text-gray-600">{v.administeredBy || '—'}</td>
                           <td className="px-4 py-3 text-sm text-gray-500">{v.notes || '—'}</td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => openEditVax(v)} title="Edit"
+                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                                <Pencil size={13} />
+                              </button>
+                              <button onClick={() => handleDeleteVax(v)} title="Delete"
+                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                   </tbody>
@@ -526,6 +601,62 @@ export default function BatchDetailPage() {
                 <div className="flex gap-3">
                   <button type="submit" disabled={isSaving} className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold disabled:opacity-50">{isSaving ? 'Saving...' : 'Save Weight'}</button>
                   <button type="button" onClick={() => setShowGrowthForm(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT VACCINATION MODAL */}
+        {editingVax && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+              <div className="p-5 border-b flex justify-between items-center">
+                <h2 className="font-bold text-lg">Edit Vaccination Record</h2>
+                <button onClick={() => setEditingVax(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+              </div>
+              <form onSubmit={handleEditVaxSave} className="p-5 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vaccine *</label>
+                  <input type="text" required value={editVaxForm.vaccineType}
+                    onChange={(e) => setEditVaxForm({ ...editVaxForm, vaccineType: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                    <input type="date" required value={editVaxForm.dateAdministered}
+                      onChange={(e) => setEditVaxForm({ ...editVaxForm, dateAdministered: e.target.value })}
+                      className="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Dosage</label>
+                    <input type="text" value={editVaxForm.dosage}
+                      onChange={(e) => setEditVaxForm({ ...editVaxForm, dosage: e.target.value })}
+                      className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="e.g. 1 drop per bird" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Administered By</label>
+                  <input type="text" value={editVaxForm.administeredBy}
+                    onChange={(e) => setEditVaxForm({ ...editVaxForm, administeredBy: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Name or role" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <textarea rows={2} value={editVaxForm.notes}
+                    onChange={(e) => setEditVaxForm({ ...editVaxForm, notes: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm resize-none" />
+                </div>
+                <div className="flex gap-3">
+                  <button type="submit" disabled={isSaving}
+                    className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold disabled:opacity-50">
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button type="button" onClick={() => setEditingVax(null)}
+                    className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold">
+                    Cancel
+                  </button>
                 </div>
               </form>
             </div>

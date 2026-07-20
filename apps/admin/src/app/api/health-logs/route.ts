@@ -199,3 +199,19 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(adminAuthOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { vaccinationId } = await request.json();
+    if (!vaccinationId) return NextResponse.json({ error: 'vaccinationId required' }, { status: 400 });
+
+    await db.vaccination.delete({ where: { id: vaccinationId } });
+    return NextResponse.json({ message: 'Vaccination record deleted' });
+  } catch (error) {
+    console.error('Vaccination delete error:', error);
+    return NextResponse.json({ error: 'Failed to delete vaccination record' }, { status: 500 });
+  }
+}

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import {
   LayoutDashboard, Egg, Bird, Leaf, Stethoscope, Package, ShoppingCart,
-  Truck, Users, BarChart3, Settings, Menu, X, ClipboardList, Receipt, LogOut, Target,
+  Truck, Users, BarChart3, Settings, Menu, X, ClipboardList, Receipt, LogOut, Target, TrendingUp,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -23,6 +23,7 @@ const ALL_NAV_ITEMS = [
   { label: 'Customers', href: '/customers', icon: Users, roles: ['ADMIN'] },
   { label: 'Reports', href: '/reports', icon: BarChart3, roles: ['ADMIN'] },
   { label: 'Goals & Targets', href: '/goals', icon: Target, roles: ['ADMIN'] },
+  { label: 'Income', href: '/income', icon: TrendingUp, roles: ['ADMIN'] },
   { label: 'Expenses', href: '/expenses', icon: Receipt, roles: ['ADMIN'] },
   { label: 'Settings', href: '/settings', icon: Settings, roles: ['ADMIN'] },
 ];
