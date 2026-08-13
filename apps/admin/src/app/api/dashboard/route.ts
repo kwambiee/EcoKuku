@@ -394,9 +394,20 @@ export async function GET(_request: NextRequest) {
       batchesByType[b.type].push(b);
     }
 
-    // ---- Monthly Revenue Summary ----
-    const revThisMonth = Number(revenueThisMonth._sum.total || 0);
-    const revLastMonth = Number(revenueLastMonth._sum.total || 0);
+    // ---- Monthly Revenue Summary (orders + manual income + batch deposits) ----
+    const [incomeThisMonth, incomeLastMonth, batchDepositsThisMonth, batchDepositsLastMonth] = await Promise.all([
+      db.income.aggregate({ where: { date: { gte: monthStart } }, _sum: { amount: true } }),
+      db.income.aggregate({ where: { date: { gte: lastMonthStart, lte: lastMonthEnd } }, _sum: { amount: true } }),
+      db.batchOrder.aggregate({ where: { createdAt: { gte: monthStart }, depositPaid: true }, _sum: { depositAmount: true } }),
+      db.batchOrder.aggregate({ where: { createdAt: { gte: lastMonthStart, lte: lastMonthEnd }, depositPaid: true }, _sum: { depositAmount: true } }),
+    ]);
+
+    const revThisMonth = Number(revenueThisMonth._sum.total || 0)
+      + Number(incomeThisMonth._sum.amount || 0)
+      + Number(batchDepositsThisMonth._sum.depositAmount || 0);
+    const revLastMonth = Number(revenueLastMonth._sum.total || 0)
+      + Number(incomeLastMonth._sum.amount || 0)
+      + Number(batchDepositsLastMonth._sum.depositAmount || 0);
     const expThisMonth = Number(expensesThisMonth._sum.amount || 0);
     const monthlyTrend = revLastMonth > 0 ? Math.round(((revThisMonth - revLastMonth) / revLastMonth) * 100) : null;
 
@@ -465,8 +476,14 @@ export async function GET(_request: NextRequest) {
     // ---- Build Response ----
     const eggsTodayNum = eggsToday._sum.collected || 0;
     const eggsYesterdayNum = eggsYesterday._sum.collected || 0;
-    const revTodayNum = Number(revenueToday._sum.total || 0);
-    const revYesterdayNum = Number(revenueYesterday._sum.total || 0);
+
+    // Today's revenue = orders + income logged today
+    const [incomeTodayAgg, incomeYesterdayAgg] = await Promise.all([
+      db.income.aggregate({ where: { date: { gte: todayStart } }, _sum: { amount: true } }),
+      db.income.aggregate({ where: { date: { gte: yesterdayStart, lt: todayStart } }, _sum: { amount: true } }),
+    ]);
+    const revTodayNum = Number(revenueToday._sum.total || 0) + Number(incomeTodayAgg._sum.amount || 0);
+    const revYesterdayNum = Number(revenueYesterday._sum.total || 0) + Number(incomeYesterdayAgg._sum.amount || 0);
 
     return NextResponse.json({
       greeting: {
