@@ -16,6 +16,7 @@ import {
 interface ReportData {
   summary: {
     totalRevenue: number; productRevenue: number; batchBookingDeposits: number; batchBookingCount: number;
+    manualIncomeTotal: number;
     revenueTrend: number | null; totalOrders: number; ordersTrend: number | null;
     avgOrderValue: number; totalCustomers: number; newCustomersLastMonth: number;
     totalExpenses: number; netProfit: number;
@@ -37,6 +38,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   TRANSPORT: 'Transport', VETERINARY: 'Veterinary', OTHER: 'Other',
   EGGS: 'Eggs', LIVE_POULTRY: 'Live Poultry', DRESSED_MEAT: 'Dressed Meat',
   CHICKS: 'Chicks', BATCH_BOOKINGS: 'Batch Bookings',
+  INCOME_EGGS_SALE: 'Egg Sales (Direct)', INCOME_LIVE_BIRDS_SALE: 'Live Bird Sales',
+  INCOME_CHICKS_SALE: 'Chick Sales', INCOME_MANURE_SALE: 'Manure Sales',
+  INCOME_BATCH_ORDER_DEPOSIT: 'Batch Deposits (Manual)', INCOME_OTHER: 'Other Income',
 };
 const EXPENSE_COLORS = ['#dc2626','#f97316','#eab308','#84cc16','#06b6d4','#8b5cf6','#ec4899','#14b8a6'];
 const REV_COLORS = ['#16a34a','#2563eb','#d97706','#7c3aed','#0891b2','#dc2626'];
@@ -370,8 +374,11 @@ ${data.topCustomers.map((c, i) => `<tr><td>#${i + 1} ${c.name}</td><td class="te
                 <div className="bg-white rounded-lg border p-4">
                   <p className="text-xs text-gray-500 uppercase mb-1">Total Revenue</p>
                   <p className="text-xl font-bold text-green-700">{fmt(s.totalRevenue)}</p>
-                  <p className="text-xs text-gray-400 mt-1">Products: {fmt(s.productRevenue)}</p>
+                  <p className="text-xs text-gray-400 mt-1">Orders: {fmt(s.productRevenue)}</p>
                   <p className="text-xs text-gray-400">Deposits: {fmt(s.batchBookingDeposits)}</p>
+                  {s.manualIncomeTotal > 0 && (
+                    <p className="text-xs text-gray-400">Other income: {fmt(s.manualIncomeTotal)}</p>
+                  )}
                   {s.revenueTrend !== null && (
                     <div className={`mt-1 flex items-center gap-1 text-xs ${s.revenueTrend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {s.revenueTrend >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}

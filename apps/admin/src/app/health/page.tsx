@@ -27,57 +27,96 @@ interface VaccinationLog {
 
 interface VaccineScheduleItem {
   vaccine: string;
-  daysOld: number;
+  daysOld: number;    // recommended/target day
+  windowEnd: number;  // last day before truly overdue (give grace for delays)
   method: string;
   notes: string;
   supplementNotes: string;
 }
 
-// Standard poultry vaccination schedule (days of age) — sorted by daysOld for matrix columns
+// Vet-recommended vaccination schedule — daysOld = target/recommended day, windowEnd = last day before overdue
+// The system recommends; farmer logs on the actual day they administer.
 const VACCINE_SCHEDULE: VaccineScheduleItem[] = [
-  { vaccine: "Marek's Disease", daysOld: 1, method: 'Subcutaneous injection', notes: 'At hatchery, day 1 only', supplementNotes: 'Usually done at hatchery. Ensure chicks have glucose water available' },
-  { vaccine: 'Newcastle Disease (ND)', daysOld: 7, method: 'Eye drop / Drinking water', notes: 'First dose', supplementNotes: 'Give multivitamins in drinking water 2 days before and 3 days after vaccination to reduce stress' },
-  { vaccine: 'Coccidiosis', daysOld: 7, method: 'Oral / Feed', notes: 'Or use medicated starter feed', supplementNotes: 'Probiotics in feed 3 days after to restore gut flora. Avoid coccidiostat in feed if using vaccine' },
-  { vaccine: 'Infectious Bronchitis (IB)', daysOld: 10, method: 'Eye drop / Spray', notes: 'Optional based on area risk', supplementNotes: 'Vitamin C in water to reduce respiratory stress' },
-  { vaccine: 'Gumboro (IBD)', daysOld: 14, method: 'Drinking water', notes: 'First dose', supplementNotes: 'Vitamin E and selenium supplement to boost immune response' },
-  { vaccine: 'ND Booster', daysOld: 21, method: 'Drinking water', notes: 'Booster', supplementNotes: 'Multivitamins in water 2 days before and after' },
-  { vaccine: 'Gumboro Booster', daysOld: 28, method: 'Drinking water', notes: 'Booster', supplementNotes: 'Electrolytes in water to reduce vaccination stress' },
-  { vaccine: 'Fowl Pox', daysOld: 42, method: 'Wing web stab', notes: 'One-time', supplementNotes: 'Vitamin A supplement to support skin healing at injection site' },
+  {
+    vaccine: "Marek's Disease",
+    daysOld: 1, windowEnd: 3,
+    method: 'Subcutaneous injection (hatchery)',
+    notes: 'Done at hatchery on day 1. Confirm receipt of vaccinated chicks.',
+    supplementNotes: 'Ensure glucose water available for first 6 hours after arrival. Chicks should be warm and stress-free.',
+  },
+  {
+    vaccine: 'Newcastle Disease + IB',
+    daysOld: 7, windowEnd: 14,
+    method: 'Eye drop / Drinking water',
+    notes: 'Combined ND + Infectious Bronchitis — first dose. Window: Day 7–14.',
+    supplementNotes: 'Give multivitamins in drinking water 2 days before and 3 days after. Withhold water 1–2 hours before drinking-water administration.',
+  },
+  {
+    vaccine: 'Gumboro (IBD)',
+    daysOld: 14, windowEnd: 21,
+    method: 'Drinking water',
+    notes: 'First dose. Window: Day 14–21.',
+    supplementNotes: 'Use chlorine-free water. Vitamin E + selenium supplement boosts immune response. Withhold water 1–2 hours before.',
+  },
+  {
+    vaccine: 'Newcastle Disease (plain)',
+    daysOld: 21, windowEnd: 28,
+    method: 'Eye drop / Drinking water',
+    notes: 'Second ND dose (plain/live vaccine). Window: Day 21–28.',
+    supplementNotes: 'Multivitamins in water 2 days before and after. Do not combine with other vaccines on same day.',
+  },
+  {
+    vaccine: 'Gumboro Booster',
+    daysOld: 28, windowEnd: 35,
+    method: 'Drinking water',
+    notes: 'Gumboro second dose / booster. Window: Day 28–35.',
+    supplementNotes: 'Electrolytes in water to reduce post-vaccination stress. Ensure all birds drink within 2 hours.',
+  },
+  {
+    vaccine: 'Fowl Pox',
+    daysOld: 42, windowEnd: 70,
+    method: 'Wing web stab',
+    notes: 'One-time. Window: Day 42–70. Check take-reaction (scab) 7–10 days after.',
+    supplementNotes: 'Vitamin A supplement supports skin healing at stab site. Inspect wings 7–10 days post-vaccination for scab formation (confirms take).',
+  },
+  {
+    vaccine: 'Fowl Typhoid',
+    daysOld: 56, windowEnd: 84,
+    method: 'Subcutaneous injection / Drinking water',
+    notes: 'Salmonella gallinarum. Window: Day 56–84. Some vets recommend at point-of-lay (~18 weeks).',
+    supplementNotes: 'Probiotics in feed 3 days after to support gut health. Ensure birds are in good health before vaccination.',
+  },
 ];
 
 const DOSAGE_GUIDE: Record<string, string> = {
-  'Newcastle Disease (ND)': 'Eye drop: 1 drop per bird | Drinking water: dissolve 1 vial (1000 doses) in clean water for 1000 birds. Let birds drink within 2 hours.',
-  'Gumboro (IBD)': 'Drinking water: dissolve 1 vial in clean, chlorine-free water. For 1000 birds use approx 20-40 litres. Withhold water 1-2 hours before.',
-  'Fowl Pox': 'Wing web stab: dip applicator in reconstituted vaccine, stab through wing web. Use proper twin-needle applicator.',
-  "Marek's Disease": 'Subcutaneous injection: 0.2ml per chick at the back of the neck. Typically done at hatchery on day 1.',
-  'Infectious Bronchitis (IB)': 'Eye drop: 1 drop per bird | Spray: reconstitute in distilled water, spray as fine mist over birds in enclosed area.',
-  'Coccidiosis': 'Oral/Feed: mix vaccine with feed or spray on feed. Ensure even distribution. 1 vial per manufacturer instruction per flock size.',
-  'ND Booster': 'Drinking water: same as Newcastle first dose. Dissolve in clean water, let birds drink within 2 hours. Withhold water 1-2 hours before.',
-  'Gumboro Booster': 'Drinking water: same as first Gumboro dose. Use chlorine-free water. Withhold water 1-2 hours before.',
-  'Salmonella': 'Drinking water or spray: follow manufacturer instructions. Usually 1 vial per 1000-2000 birds.',
-  'Avian Influenza (AI)': 'Subcutaneous or intramuscular injection: 0.5ml per bird. Follow veterinary guidance.',
+  "Marek's Disease": 'Subcutaneous injection: 0.2 ml per chick at back of neck. Done at hatchery on day 1.',
+  'Newcastle Disease + IB': 'Eye drop: 1 drop per bird. Drinking water: dissolve 1 vial (1000 doses) in chlorine-free water. Birds must drink within 2 hours.',
+  'Gumboro (IBD)': 'Drinking water: dissolve 1 vial in clean, chlorine-free water. 20–40 litres per 1000 birds. Withhold water 1–2 hours before.',
+  'Newcastle Disease (plain)': 'Eye drop: 1 drop per bird. Drinking water: dissolve in clean water. Let birds drink within 2 hours. Withhold water 1–2 hours before.',
+  'Gumboro Booster': 'Same as first Gumboro dose. Chlorine-free water. Withhold 1–2 hours before. Ensure all birds drink.',
+  'Fowl Pox': 'Wing web stab: dip applicator in reconstituted vaccine, stab through wing web. Use twin-needle applicator. Check for scab 7–10 days after.',
+  'Fowl Typhoid': 'Injection: 0.5 ml subcutaneously or as per label. Drinking water: follow manufacturer dose. Ensure birds are healthy before vaccinating.',
 };
 
 // Keywords used for fuzzy matching vaccination logs to scheduled vaccines
 const VACCINE_MATCH_KEYWORDS: Record<string, string[]> = {
   "Marek's Disease": ['MAREK'],
-  'Newcastle Disease (ND)': ['NEWCASTLE'],
-  'Coccidiosis': ['COCCIDIOSIS', 'COCCI'],
-  'Infectious Bronchitis (IB)': ['BRONCHITIS', 'IB'],
+  'Newcastle Disease + IB': ['NEWCASTLE', 'IB', 'BRONCHITIS'],
   'Gumboro (IBD)': ['GUMBORO', 'IBD'],
-  'ND Booster': ['NEWCASTLE', 'ND'],
+  'Newcastle Disease (plain)': ['NEWCASTLE', 'ND'],
   'Gumboro Booster': ['GUMBORO', 'IBD'],
   'Fowl Pox': ['FOWL POX', 'POX'],
+  'Fowl Typhoid': ['TYPHOID', 'SALMONELLA', 'GALLINARUM'],
 };
 
 const VACCINE_TYPES = [
-  'Newcastle Disease (ND)',
-  'Gumboro (IBD)',
-  'Fowl Pox',
   "Marek's Disease",
-  'Infectious Bronchitis (IB)',
-  'Coccidiosis',
-  'Salmonella',
+  'Newcastle Disease + IB',
+  'Gumboro (IBD)',
+  'Newcastle Disease (plain)',
+  'Gumboro Booster',
+  'Fowl Pox',
+  'Fowl Typhoid',
   'Avian Influenza (AI)',
   'Other',
 ];
@@ -175,20 +214,24 @@ function getVaccineStatus(
     return { status: 'done', label: dateStr, dateAdministered: matchingLogs[0].dateAdministered };
   }
 
-  const daysUntilDue = vaccine.daysOld - batchAgeInDays;
+  const daysUntilTarget = vaccine.daysOld - batchAgeInDays;
+  const daysUntilWindowEnd = vaccine.windowEnd - batchAgeInDays;
 
-  if (daysUntilDue < 0) {
+  // Only truly overdue once the entire recommended window has passed
+  if (daysUntilWindowEnd < 0) {
     return { status: 'overdue', label: 'OVERDUE' };
   }
 
-  if (daysUntilDue <= 3) {
-    if (daysUntilDue === 0) {
-      return { status: 'due', label: 'Due today' };
-    }
-    return { status: 'due', label: `Due in ${daysUntilDue}d` };
+  // Within the window — show as "due" (actionable)
+  if (daysUntilTarget <= 0) {
+    return { status: 'due', label: `Due (window closes D${vaccine.windowEnd})` };
   }
 
-  return { status: 'upcoming', label: `Day ${vaccine.daysOld}` };
+  if (daysUntilTarget <= 3) {
+    return { status: 'due', label: `Due in ${daysUntilTarget}d` };
+  }
+
+  return { status: 'upcoming', label: `Day ${vaccine.daysOld}–${vaccine.windowEnd}` };
 }
 
 export default function HealthPage() {
@@ -573,7 +616,7 @@ export default function HealthPage() {
                         >
                           <div className="leading-tight">
                             <div>{v.vaccine.replace(' Disease', '').replace(' (IBD)', '').replace(' (ND)', '').replace('Infectious Bronchitis (IB)', 'IB')}</div>
-                            <div className="text-gray-400 font-normal mt-0.5">Day {v.daysOld}</div>
+                            <div className="text-gray-400 font-normal mt-0.5">D{v.daysOld}–{v.windowEnd}</div>
                           </div>
                         </th>
                       ))}
@@ -655,7 +698,7 @@ export default function HealthPage() {
                   {VACCINE_SCHEDULE.map((v) => (
                     <tr key={v.vaccine} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-sm text-gray-900">{v.vaccine}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">Day {v.daysOld}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">Day {v.daysOld}–{v.windowEnd}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{v.method}</td>
                       <td className="px-4 py-3 text-sm text-gray-500 italic">{v.notes}</td>
                       <td className="px-4 py-3 text-sm text-amber-700 max-w-xs">{v.supplementNotes}</td>
@@ -1043,7 +1086,7 @@ export default function HealthPage() {
               <div className="p-5 border-b border-gray-200 flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-lg text-gray-900">{tooltipCell.vaccine.vaccine}</h3>
-                  <p className="text-sm text-gray-500">{tooltipBatch.batchNumber} &middot; Day {tooltipCell.vaccine.daysOld}</p>
+                  <p className="text-sm text-gray-500">{tooltipBatch.batchNumber} &middot; Recommended: Day {tooltipCell.vaccine.daysOld}–{tooltipCell.vaccine.windowEnd}</p>
                 </div>
                 <button onClick={() => setActiveTooltip(null)} className="text-gray-400 hover:text-gray-600">
                   <X size={20} />
@@ -1056,7 +1099,7 @@ export default function HealthPage() {
                     {tooltipCell.status === 'done' ? `Administered on ${tooltipCell.label}` :
                      tooltipCell.status === 'overdue' ? 'Overdue — should have been given' :
                      tooltipCell.status === 'due' ? tooltipCell.label :
-                     `Scheduled for day ${tooltipCell.vaccine.daysOld}`}
+                     `Recommended window: Day ${tooltipCell.vaccine.daysOld}–${tooltipCell.vaccine.windowEnd}`}
                   </span>
                 </div>
 

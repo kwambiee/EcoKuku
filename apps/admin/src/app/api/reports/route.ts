@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
 
     const orderWhere = { createdAt: { gte: rangeStart, lte: rangeEnd }, status: { notIn: ['CANCELLED', 'FAILED'] } } as any;
     const expenseWhere = { date: { gte: rangeStart, lte: rangeEnd } };
+    const incomeWhere = { date: { gte: rangeStart, lte: rangeEnd } };
 
     const [
       revenueAgg,
@@ -62,6 +63,11 @@ export async function GET(request: NextRequest) {
       activeBatches,
       feedCostAgg,
       ordersLast60d,
+      incomeLast60d,
+      incomeAgg,
+      lastMonthIncomeAgg,
+      thisMonthIncomeAgg,
+      incomeByCategoryRaw,
       monthlyData,
     ] = await Promise.all([
       db.order.aggregate({ where: orderWhere, _sum: { total: true } }),
@@ -80,9 +86,7 @@ export async function GET(request: NextRequest) {
       }),
       db.expense.aggregate({ where: expenseWhere, _sum: { amount: true } }),
       db.batchOrder.aggregate({ where: { createdAt: { gte: rangeStart, lte: rangeEnd }, depositPaid: true }, _sum: { depositAmount: true }, _count: { id: true } }),
-      // Expenses grouped by category
       db.expense.groupBy({ by: ['category'], where: expenseWhere, _sum: { amount: true }, orderBy: { _sum: { amount: 'desc' } } }),
-      // Top customers by spend
       db.order.groupBy({
         by: ['customerId'],
         where: orderWhere,
@@ -91,25 +95,32 @@ export async function GET(request: NextRequest) {
         orderBy: { _sum: { total: 'desc' } },
         take: 8,
       }),
-      // Egg production last 30 days
       db.eggProduction.findMany({
         where: { date: { gte: thirtyDaysAgo } },
         select: { date: true, collected: true },
       }),
-      // Active batches for mortality summary
       db.batch.findMany({
         where: { status: 'ACTIVE' },
         select: { id: true, batchNumber: true, type: true, quantity: true, currentCount: true, startDate: true },
         orderBy: { startDate: 'desc' },
         take: 10,
       }),
-      // Feed purchases (all time) for efficiency calc
       db.feedPurchase.aggregate({ _sum: { totalCost: true } }),
-      // Orders last 60 days for daily trend + forecast
       db.order.findMany({
         where: { createdAt: { gte: sixtyDaysAgo }, status: { notIn: ['CANCELLED', 'FAILED'] } },
         select: { createdAt: true, total: true },
       }),
+      // Manual income last 60 days for daily trend
+      db.income.findMany({
+        where: { date: { gte: sixtyDaysAgo } },
+        select: { date: true, amount: true },
+      }),
+      // Manual income totals for range
+      db.income.aggregate({ where: incomeWhere, _sum: { amount: true } }),
+      db.income.aggregate({ where: { date: { gte: lastMonthStart, lte: lastMonthEnd } }, _sum: { amount: true } }),
+      db.income.aggregate({ where: { date: { gte: thisMonthStart } }, _sum: { amount: true } }),
+      // Manual income by category
+      db.income.groupBy({ by: ['category'], where: incomeWhere, _sum: { amount: true }, orderBy: { _sum: { amount: 'desc' } } }),
       // Monthly breakdown
       Promise.all(
         Array.from({ length: monthCount }, (_, i) => {
@@ -122,6 +133,7 @@ export async function GET(request: NextRequest) {
             db.order.aggregate({ where: { createdAt: { gte: monthStart, lte: monthEnd }, status: { notIn: ['CANCELLED', 'FAILED'] } }, _sum: { total: true }, _count: { id: true } }),
             db.expense.aggregate({ where: { date: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
             db.batchOrder.aggregate({ where: { createdAt: { gte: monthStart, lte: monthEnd }, depositPaid: true }, _sum: { depositAmount: true } }),
+            db.income.aggregate({ where: { date: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
             monthStart,
           ]);
         }),
@@ -143,6 +155,11 @@ export async function GET(request: NextRequest) {
     }
     const batchDepositTotal = Number(batchDepositsAgg._sum.depositAmount || 0);
     if (batchDepositTotal > 0) catRevMap['BATCH_BOOKINGS'] = batchDepositTotal;
+    // Add manual income by category to the breakdown
+    for (const ic of incomeByCategoryRaw) {
+      const key = `INCOME_${ic.category}`;
+      catRevMap[key] = (catRevMap[key] || 0) + Number(ic._sum?.amount || 0);
+    }
 
     // Product names for top products
     const productIds = topProductsRaw.map((p) => p.productId);
@@ -154,11 +171,16 @@ export async function GET(request: NextRequest) {
     const customerNames = await db.user.findMany({ where: { id: { in: customerIds } }, select: { id: true, name: true, email: true } });
     const customerNameMap = Object.fromEntries(customerNames.map((c) => [c.id, c]));
 
-    // Revenue aggregates
-    const totalRevenueNum = Number(revenueAgg._sum?.total || 0) + batchDepositTotal;
-    const lastMonthRevNum = Number(lastMonthRevenueAgg._sum?.total || 0);
+    // Revenue aggregates — orders + batch deposits + manual income
+    const manualIncomeTotal = Number(incomeAgg._sum?.amount || 0);
+    const totalRevenueNum = Number(revenueAgg._sum?.total || 0) + batchDepositTotal + manualIncomeTotal;
+
+    const thisMonthIncomeNum = Number(thisMonthIncomeAgg._sum?.amount || 0);
+    const lastMonthIncomeNum = Number(lastMonthIncomeAgg._sum?.amount || 0);
+    const thisMonthTotalRev = Number(thisMonthRevenueAgg._sum?.total || 0) + thisMonthIncomeNum;
+    const lastMonthRevNum = Number(lastMonthRevenueAgg._sum?.total || 0) + lastMonthIncomeNum;
     const revenueTrend = lastMonthRevNum > 0
-      ? Math.round(((Number(thisMonthRevenueAgg._sum?.total || 0) - lastMonthRevNum) / lastMonthRevNum) * 100)
+      ? Math.round(((thisMonthTotalRev - lastMonthRevNum) / lastMonthRevNum) * 100)
       : null;
     const totalExpensesNum = Number(expenseAgg._sum.amount || 0);
 
@@ -175,11 +197,15 @@ export async function GET(request: NextRequest) {
     });
     const totalEggsLast30d = eggTrend30d.reduce((s, e) => s + e.collected, 0);
 
-    // Daily revenue (60 days) for forecast
+    // Daily revenue (60 days) for forecast — orders + manual income
     const dailyRevenueMap: Record<string, number> = {};
     for (const o of ordersLast60d) {
       const day = o.createdAt.toISOString().slice(0, 10);
       dailyRevenueMap[day] = (dailyRevenueMap[day] || 0) + Number(o.total || 0);
+    }
+    for (const inc of incomeLast60d) {
+      const day = new Date(inc.date).toISOString().slice(0, 10);
+      dailyRevenueMap[day] = (dailyRevenueMap[day] || 0) + Number(inc.amount || 0);
     }
     const dailyRevenue60d = Array.from({ length: 60 }, (_, i) => {
       const d = new Date(now); d.setDate(d.getDate() - (59 - i));
@@ -206,16 +232,20 @@ export async function GET(request: NextRequest) {
       feedCostPerEgg: totalEggsLast30d > 0 ? Math.round((totalFeedCost / totalEggsLast30d) * 100) / 100 : 0,
     };
 
-    // Monthly P&L
+    // Monthly P&L — orders + batch deposits + manual income
     const monthly = (monthlyData as any[])
       .filter((m) => m !== null)
-      .map(([orderAgg, expenseAgg, batchAgg, date]: any) => {
-        const revenue = Number(orderAgg._sum?.total || 0) + Number(batchAgg._sum?.depositAmount || 0);
-        const expenses = Number(expenseAgg._sum?.amount || 0);
+      .map(([orderAgg, expAgg, batchAgg, incAgg, date]: any) => {
+        const orderRevenue = Number(orderAgg._sum?.total || 0);
+        const batchRevenue = Number(batchAgg._sum?.depositAmount || 0);
+        const manualIncome = Number(incAgg._sum?.amount || 0);
+        const revenue = orderRevenue + batchRevenue + manualIncome;
+        const expenses = Number(expAgg._sum?.amount || 0);
         return {
           month: (date as Date).toLocaleDateString('en-KE', { month: 'short', year: 'numeric' }),
           revenue, expenses, profit: revenue - expenses,
           orders: orderAgg._count?.id || 0,
+          manualIncome,
         };
       });
 
@@ -225,6 +255,7 @@ export async function GET(request: NextRequest) {
         productRevenue: Number(revenueAgg._sum?.total || 0),
         batchBookingDeposits: batchDepositTotal,
         batchBookingCount: (batchDepositsAgg._count as any).id ?? 0,
+        manualIncomeTotal,
         revenueTrend,
         totalOrders: totalOrderCount,
         ordersTrend: lastMonthOrderCount > 0 ? ((thisMonthRevenueAgg._count as any).id ?? 0) - lastMonthOrderCount : null,

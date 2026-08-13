@@ -7,7 +7,7 @@ import Link from 'next/link';
 import {
   DollarSign, ShoppingCart, Egg, Bird, Wheat, CreditCard,
   Bell, CheckCircle, Circle, AlertTriangle, Clock,
-  ArrowRight, TrendingUp, TrendingDown, Package, BarChart3, Target,
+  ArrowRight, TrendingUp, TrendingDown, Package, BarChart3, Target, Calculator,
 } from 'lucide-react';
 
 interface DashboardData {
@@ -33,6 +33,14 @@ interface DashboardData {
     id: string; category: string; label: string | null; target: number; actual: number;
     progressPct: number; isLowerBetter: boolean; currentPace: number; neededPace: number; daysRemaining: number;
   }[];
+  costOfProduction: {
+    costPerEgg: number | null;
+    costPerBirdMonth: number | null;
+    eggsThisMonth: number;
+    expensesThisMonth: number;
+    totalActiveBirds: number;
+    batchCostBreakdown: { batchNumber: string; costPerChick: number | null; totalAcquisitionCost: number; initialCount: number; currentCount: number }[];
+  } | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -502,6 +510,50 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
+
+              {/* Cost of Production */}
+              {data.costOfProduction && (
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Calculator size={14} className="text-gray-400" /> Cost of production — this month
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 flex items-center gap-1"><Egg size={11} /> Cost per egg</span>
+                      <span className="text-sm font-bold text-gray-900">
+                        {data.costOfProduction.costPerEgg !== null
+                          ? `KSh ${data.costOfProduction.costPerEgg.toFixed(2)}`
+                          : <span className="text-gray-400 font-normal">No data</span>}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 flex items-center gap-1"><Bird size={11} /> Cost per bird/month</span>
+                      <span className="text-sm font-bold text-gray-900">
+                        {data.costOfProduction.costPerBirdMonth !== null
+                          ? `KSh ${data.costOfProduction.costPerBirdMonth.toFixed(2)}`
+                          : <span className="text-gray-400 font-normal">No data</span>}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t border-gray-100 space-y-1 text-xs text-gray-400">
+                      <p>Based on KSh {data.costOfProduction.expensesThisMonth.toLocaleString()} expenses</p>
+                      <p>{data.costOfProduction.eggsThisMonth.toLocaleString()} eggs · {data.costOfProduction.totalActiveBirds.toLocaleString()} birds</p>
+                    </div>
+                    {data.costOfProduction.batchCostBreakdown.length > 0 && (
+                      <div className="pt-2 border-t border-gray-100">
+                        <p className="text-xs text-gray-500 mb-1.5">Acquisition cost per chick</p>
+                        {data.costOfProduction.batchCostBreakdown.map((b) => (
+                          <div key={b.batchNumber} className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-gray-600">{b.batchNumber}</span>
+                            <span className="font-semibold text-gray-800">
+                              {b.costPerChick !== null ? `KSh ${b.costPerChick.toFixed(2)}/chick` : '—'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : (

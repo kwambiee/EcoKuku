@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { Sidebar } from '@/components/Sidebar';
 import { Badge } from '@ecokuku/ui';
 import { toast } from 'sonner';
@@ -252,10 +253,16 @@ export default function EggsPage() {
               <p className="text-gray-500 text-sm">Daily collection logs and production trends</p>
             </div>
           </div>
-          <button onClick={() => { setFormData(emptyForm); setShowForm(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-800 text-white rounded-lg font-medium hover:bg-green-700 text-sm">
-            <Plus size={16} /> Log Collection
-          </button>
+          <div className="flex items-center gap-2">
+            <Link href="/income?category=EGGS_SALE"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 text-sm text-gray-700">
+              <TrendingUp size={15} /> Log egg sale
+            </Link>
+            <button onClick={() => { setFormData(emptyForm); setShowForm(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-800 text-white rounded-lg font-medium hover:bg-green-700 text-sm">
+              <Plus size={16} /> Log Collection
+            </button>
+          </div>
         </div>
 
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">

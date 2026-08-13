@@ -120,7 +120,7 @@ export async function GET(_request: NextRequest) {
     ] = await Promise.all([
       db.batch.findMany({
         where: { status: 'ACTIVE' },
-        select: { id: true, currentCount: true, batchNumber: true, type: true, startDate: true, breed: true, source: true, notes: true },
+        select: { id: true, currentCount: true, quantity: true, batchNumber: true, type: true, startDate: true, breed: true, source: true, notes: true, acquisitionCost: true },
       }),
       db.eggProduction.aggregate({ where: { date: { gte: todayStart } }, _sum: { collected: true } }),
       db.eggProduction.aggregate({ where: { date: { gte: yesterdayStart, lt: todayStart } }, _sum: { collected: true } }),
@@ -434,6 +434,34 @@ export async function GET(_request: NextRequest) {
     // ---- Outstanding Payments ----
     const outstandingTotal = outstandingPayments.reduce((s, o) => s + Number(o.total), 0);
 
+    // ---- Cost of Production ----
+    const eggsThisMonthAgg = await db.eggProduction.aggregate({
+      where: { date: { gte: monthStart } },
+      _sum: { collected: true },
+    });
+    const eggsThisMonthNum = eggsThisMonthAgg._sum.collected || 0;
+
+    // Cost per egg = total expenses this month / eggs collected this month
+    const costPerEgg = eggsThisMonthNum > 0 && expThisMonth > 0
+      ? Math.round((expThisMonth / eggsThisMonthNum) * 100) / 100
+      : null;
+
+    // Cost per live bird = total expenses this month / total active birds
+    const costPerBirdMonth = totalBirds > 0 && expThisMonth > 0
+      ? Math.round((expThisMonth / totalBirds) * 100) / 100
+      : null;
+
+    // Per-batch acquisition cost per chick
+    const batchCostBreakdown = activeBatches
+      .filter((b: any) => b.acquisitionCost)
+      .map((b: any) => ({
+        batchNumber: b.batchNumber,
+        costPerChick: b.quantity > 0 ? Math.round((Number(b.acquisitionCost) / b.quantity) * 100) / 100 : null,
+        totalAcquisitionCost: Number(b.acquisitionCost),
+        initialCount: b.quantity,
+        currentCount: b.currentCount,
+      }));
+
     // ---- Build Response ----
     const eggsTodayNum = eggsToday._sum.collected || 0;
     const eggsYesterdayNum = eggsYesterday._sum.collected || 0;
@@ -496,6 +524,14 @@ export async function GET(_request: NextRequest) {
       preOrders: preOrderSummary,
       lowStockProducts,
       weeklyGoals: await getWeeklyGoals(weekStart, now),
+      costOfProduction: {
+        costPerEgg,
+        costPerBirdMonth,
+        eggsThisMonth: eggsThisMonthNum,
+        expensesThisMonth: expThisMonth,
+        totalActiveBirds: totalBirds,
+        batchCostBreakdown,
+      },
     });
   } catch (error: any) {
     console.error('Dashboard API error:', error);
