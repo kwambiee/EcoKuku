@@ -5,7 +5,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { toast } from 'sonner';
 import {
   Plus, AlertTriangle, Package, Trash2, ShoppingCart,
-  BookOpen, ChevronDown, ChevronUp, Info, Wheat, Pencil, X,
+  BookOpen, ChevronDown, ChevronUp, Info, Wheat, Pencil, X, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
 interface FeedInventory {
@@ -79,9 +79,12 @@ export default function FeedPage() {
   const [stats, setStats] = useState<FeedStats | null>(null);
   const [batches, setBatches] = useState<{ id: string; batchNumber: string; startDate: string; ageAtArrival?: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLogsLoading, setIsLogsLoading] = useState(false);
   const [action, setAction] = useState<Action>('idle');
   const [isSaving, setIsSaving] = useState(false);
   const [showFeedingGuide, setShowFeedingGuide] = useState(false);
+  const [logMonth, setLogMonth] = useState(() => new Date().getMonth() + 1); // 1-12
+  const [logYear, setLogYear] = useState(() => new Date().getFullYear());
   const [editingLog, setEditingLog] = useState<FeedLog | null>(null);
   const [editLogForm, setEditLogForm] = useState({
     feedTypeName: '', quantityUsed: '', batchId: '', notes: '', date: '',
@@ -102,11 +105,13 @@ export default function FeedPage() {
   });
   const [addTypeForm, setAddTypeForm] = useState({ name: '', supplier: '', cost: '' });
 
-  const fetchAll = async () => {
+  const fetchAll = async (opts?: { month?: number; year?: number }) => {
     setIsLoading(true);
+    const m = opts?.month ?? logMonth;
+    const y = opts?.year ?? logYear;
     try {
       const [feedRes, batchRes] = await Promise.all([
-        fetch('/api/feed'),
+        fetch(`/api/feed?logMonth=${m}&logYear=${y}`),
         fetch('/api/batches?status=ACTIVE&limit=50'),
       ]);
       const feedData = await feedRes.json();
@@ -120,7 +125,30 @@ export default function FeedPage() {
     finally { setIsLoading(false); }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Lightweight fetch — only refreshes the log table, no full-page reload
+  const fetchLogs = async (month: number, year: number) => {
+    setIsLogsLoading(true);
+    try {
+      const res = await fetch(`/api/feed?logMonth=${month}&logYear=${year}`);
+      const data = await res.json();
+      setLogs(data.recentLogs || []);
+    } catch { toast.error('Failed to load logs'); }
+    finally { setIsLogsLoading(false); }
+  };
+
+  const stepLogMonth = (dir: 1 | -1) => {
+    let m = logMonth + dir;
+    let y = logYear;
+    if (m < 1) { m = 12; y -= 1; }
+    if (m > 12) { m = 1; y += 1; }
+    setLogMonth(m);
+    setLogYear(y);
+    fetchLogs(m, y); // only refreshes the log table — no page-wide reload
+  };
+
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   const handlePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +184,7 @@ export default function FeedPage() {
       const nd = new Date(); const nday = nd.getDay(); const ndiff = nday === 0 ? -6 : 1 - nday; nd.setDate(nd.getDate() + ndiff);
       setConsumeForm({ feedTypeName: '', quantityUsed: '', batchId: '', notes: '', date: nd.toISOString().split('T')[0] });
       setAction('idle');
-      fetchAll();
+      fetchAll({ month: logMonth, year: logYear });
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed'); }
     finally { setIsSaving(false); }
   };
@@ -449,18 +477,45 @@ export default function FeedPage() {
 
           {/* Weekly Consumption Log */}
           <div className="bg-white rounded-xl border">
-            <div className="p-5 border-b flex items-center justify-between">
+            <div className="p-5 border-b flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h2 className="font-bold text-lg">Weekly consumption log</h2>
                 <p className="text-xs text-gray-400 mt-0.5">Record total feed given per week — adjust if birds ate more or less than the guide</p>
               </div>
-              <button onClick={() => setAction('consume')}
-                className="text-sm text-green-700 font-medium hover:underline flex items-center gap-1">
-                <Plus size={14} /> Log this week
-              </button>
+              <div className="flex items-center gap-3">
+                {/* Month navigator */}
+                <div className="flex items-center gap-1 border rounded-lg px-1 py-0.5">
+                  <button onClick={() => stepLogMonth(-1)}
+                    className="p-1 text-gray-400 hover:text-gray-700 rounded transition-colors" title="Previous month">
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="text-sm font-semibold text-gray-800 min-w-[90px] text-center">
+                    {MONTH_NAMES[logMonth - 1]} {logYear}
+                  </span>
+                  <button onClick={() => stepLogMonth(1)}
+                    className="p-1 text-gray-400 hover:text-gray-700 rounded transition-colors" title="Next month">
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+                <button onClick={() => setAction('consume')}
+                  className="text-sm text-green-700 font-medium hover:underline flex items-center gap-1">
+                  <Plus size={14} /> Log this week
+                </button>
+              </div>
             </div>
-            {logs.length === 0 ? (
-              <div className="p-8 text-center text-gray-400 text-sm">No consumption logged yet</div>
+            {isLogsLoading ? (
+              <div className="p-8 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
+                <svg className="animate-spin h-4 w-4 text-green-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+                Loading {MONTH_NAMES[logMonth - 1]} {logYear}…
+              </div>
+            ) : logs.length === 0 ? (
+              <div className="p-10 text-center text-gray-400 text-sm">
+                <p className="font-medium">No entries for {MONTH_NAMES[logMonth - 1]} {logYear}</p>
+                <p className="mt-1 text-xs">Use the arrows to navigate to another month, or log a new entry.</p>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-max">
@@ -475,7 +530,7 @@ export default function FeedPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {logs.slice(0, 20).map((log) => {
+                    {logs.map((log) => {
                       const isWarning = log.notes && /reduc|refus|low|poor|weak|monitor/i.test(log.notes);
                       return (
                         <tr key={log.id} className="hover:bg-gray-50 group">

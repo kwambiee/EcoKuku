@@ -11,14 +11,26 @@ export async function GET(_request: NextRequest) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
+    // Optional month/year filter for the consumption log view
+    const sp = _request.nextUrl.searchParams;
+    const logMonthParam = sp.get('logMonth');
+    const logYearParam = sp.get('logYear');
+    let logsWhere: { recordedDate?: { gte: Date; lt: Date } } = {};
+    if (logMonthParam && logYearParam) {
+      const y = parseInt(logYearParam);
+      const m = parseInt(logMonthParam) - 1; // 0-indexed
+      logsWhere = { recordedDate: { gte: new Date(y, m, 1), lt: new Date(y, m + 1, 1) } };
+    }
+
     const [feedTypes, recentLogs, recentPurchases, monthExpenses, totalExpensesMonth, activeBatches] = await Promise.all([
       db.feedType.findMany({
         include: { stock: true },
         orderBy: { name: 'asc' },
       }),
       db.feedLog.findMany({
+        where: logsWhere,
         orderBy: { recordedDate: 'desc' },
-        take: 50,
+        take: 200, // enough for a full year of weekly logs
         include: { batch: { select: { id: true, batchNumber: true } } },
       }),
       db.feedPurchase.findMany({
