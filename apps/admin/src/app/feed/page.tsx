@@ -39,25 +39,37 @@ function fmtKg(n: number) {
   return n % 1 === 0 ? `${n}` : n.toFixed(2).replace(/\.?0+$/, '');
 }
 
-const FEEDING_GUIDE = [
-  { age: 'Wk 1–2', feedType: 'Chick starter mash', gPerBird: '15–20g' },
-  { age: 'Wk 3–6', feedType: 'Grower mash / pellets', gPerBird: '40–60g' },
-  { age: 'Wk 7–16', feedType: 'Layer developer', gPerBird: '80–90g' },
-  { age: 'Wk 17–20', feedType: 'Pre-lay / developer', gPerBird: '100–110g' },
-  { age: 'Wk 20+', feedType: 'Layer mash', gPerBird: '110–120g' },
-  { age: 'Broiler Wk 1–3', feedType: 'Broiler starter', gPerBird: '25–60g' },
-  { age: 'Broiler Wk 4–7', feedType: 'Broiler finisher', gPerBird: '80–120g' },
+// Per-week feeding data from the vet-recommended guide photo
+// gPerBird = grams per bird per day
+const FEEDING_GUIDE: { week: number; ageRange: string; phase: string; phaseColor: string; gPerBird: number }[] = [
+  // Starter Crumbs — Week 1–5
+  { week: 1,  ageRange: '1–7 days',     phase: 'Starter Crumbs',  phaseColor: 'green',  gPerBird: 13 },
+  { week: 2,  ageRange: '8–14 days',    phase: 'Starter Crumbs',  phaseColor: 'green',  gPerBird: 23 },
+  { week: 3,  ageRange: '15–21 days',   phase: 'Starter Crumbs',  phaseColor: 'green',  gPerBird: 28 },
+  { week: 4,  ageRange: '22–28 days',   phase: 'Starter Crumbs',  phaseColor: 'green',  gPerBird: 33 },
+  { week: 5,  ageRange: '29–35 days',   phase: 'Starter Crumbs',  phaseColor: 'green',  gPerBird: 38 },
+  // Growers Mash — Week 6–15
+  { week: 6,  ageRange: '36–42 days',   phase: 'Growers Mash',    phaseColor: 'orange', gPerBird: 43 },
+  { week: 7,  ageRange: '43–49 days',   phase: 'Growers Mash',    phaseColor: 'orange', gPerBird: 48 },
+  { week: 8,  ageRange: '50–56 days',   phase: 'Growers Mash',    phaseColor: 'orange', gPerBird: 53 },
+  { week: 9,  ageRange: '57–63 days',   phase: 'Growers Mash',    phaseColor: 'orange', gPerBird: 58 },
+  { week: 10, ageRange: '64–70 days',   phase: 'Growers Mash',    phaseColor: 'orange', gPerBird: 63 },
+  { week: 11, ageRange: '71–77 days',   phase: 'Growers Mash',    phaseColor: 'orange', gPerBird: 68 },
+  { week: 12, ageRange: '78–84 days',   phase: 'Growers Mash',    phaseColor: 'orange', gPerBird: 73 },
+  { week: 13, ageRange: '85–91 days',   phase: 'Growers Mash',    phaseColor: 'orange', gPerBird: 78 },
+  { week: 14, ageRange: '92–98 days',   phase: 'Growers Mash',    phaseColor: 'orange', gPerBird: 83 },
+  { week: 15, ageRange: '99–105 days',  phase: 'Growers Mash',    phaseColor: 'orange', gPerBird: 88 },
+  // Layers Mash — Week 16–20+
+  { week: 16, ageRange: '106–112 days', phase: 'Layers Mash',     phaseColor: 'blue',   gPerBird: 93 },
+  { week: 17, ageRange: '113–119 days', phase: 'Layers Mash',     phaseColor: 'blue',   gPerBird: 98 },
+  { week: 18, ageRange: '120–126 days', phase: 'Layers Mash',     phaseColor: 'blue',   gPerBird: 103 },
+  { week: 19, ageRange: '127–133 days', phase: 'Layers Mash',     phaseColor: 'blue',   gPerBird: 108 },
+  { week: 20, ageRange: '134+ days',    phase: 'Layers Mash',     phaseColor: 'blue',   gPerBird: 113 },
 ];
 
-const GUIDE_SUPPLEMENTS = 'Supplements: Multivitamins post-vaccination · Grit always available · Electrolytes in heat stress';
-
 function getGuideForAge(days: number) {
-  const weeks = days / 7;
-  if (weeks < 2) return FEEDING_GUIDE[0];
-  if (weeks < 6) return FEEDING_GUIDE[1];
-  if (weeks < 16) return FEEDING_GUIDE[2];
-  if (weeks < 20) return FEEDING_GUIDE[3];
-  return FEEDING_GUIDE[4];
+  const week = Math.ceil(days / 7);
+  return FEEDING_GUIDE.find((r) => r.week === Math.min(Math.max(week, 1), 20)) ?? FEEDING_GUIDE[FEEDING_GUIDE.length - 1];
 }
 
 export default function FeedPage() {
@@ -80,7 +92,14 @@ export default function FeedPage() {
     supplierName: '', supplierContact: '', purchasePrice: '', transportCost: '',
     receiptRef: '', notes: '',
   });
-  const [consumeForm, setConsumeForm] = useState({ feedTypeName: '', quantityUsed: '', batchId: '', notes: '', date: new Date().toISOString().split('T')[0] });
+  // Default to Monday of the current week for the weekly log
+  const [consumeForm, setConsumeForm] = useState(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day; // shift to Monday
+    d.setDate(d.getDate() + diff);
+    return { feedTypeName: '', quantityUsed: '', batchId: '', notes: '', date: d.toISOString().split('T')[0] };
+  });
   const [addTypeForm, setAddTypeForm] = useState({ name: '', supplier: '', cost: '' });
 
   const fetchAll = async () => {
@@ -134,7 +153,8 @@ export default function FeedPage() {
       });
       if (!res.ok) throw new Error('Failed to log');
       toast.success('Consumption logged and stock deducted');
-      setConsumeForm({ feedTypeName: '', quantityUsed: '', batchId: '', notes: '', date: new Date().toISOString().split('T')[0] });
+      const nd = new Date(); const nday = nd.getDay(); const ndiff = nday === 0 ? -6 : 1 - nday; nd.setDate(nd.getDate() + ndiff);
+      setConsumeForm({ feedTypeName: '', quantityUsed: '', batchId: '', notes: '', date: nd.toISOString().split('T')[0] });
       setAction('idle');
       fetchAll();
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed'); }
@@ -251,7 +271,7 @@ export default function FeedPage() {
               <Wheat size={24} className="text-green-800" />
               <h1 className="text-2xl font-bold">Feed Management</h1>
             </div>
-            <p className="text-gray-500 text-sm mt-1">Stock levels, purchases, daily consumption and feeding guide by age</p>
+            <p className="text-gray-500 text-sm mt-1">Stock levels, purchases, weekly consumption and feeding guide by age</p>
           </div>
           <div className="flex gap-2">
             <button onClick={() => setAction('consume')}
@@ -384,44 +404,59 @@ export default function FeedPage() {
             </div>
 
             {/* Feeding Guide */}
-            <div className="lg:col-span-2 bg-white rounded-xl border">
-              <div className="p-5 border-b flex items-center gap-2">
+            <div className="lg:col-span-2 bg-white rounded-xl border overflow-hidden">
+              <div className="p-4 border-b flex items-center gap-2">
                 <BookOpen size={18} className="text-green-800" />
                 <h2 className="font-bold text-lg">Feeding guide by age</h2>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-max">
-                  <thead className="bg-green-50 text-xs uppercase text-green-900">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Age</th>
-                      <th className="px-4 py-3 text-left">Feed type</th>
-                      <th className="px-4 py-3 text-right">g/bird/day</th>
+              <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-gray-100 text-gray-600 uppercase text-[10px]">
+                      <th className="px-3 py-2 text-left">Wk</th>
+                      <th className="px-3 py-2 text-left">Age</th>
+                      <th className="px-3 py-2 text-left">Phase</th>
+                      <th className="px-3 py-2 text-right">g/bird</th>
+                      <th className="px-3 py-2 text-right">10 birds</th>
+                      <th className="px-3 py-2 text-right">50 birds</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {FEEDING_GUIDE.map((row, i) => (
-                      <tr key={i} className="hover:bg-green-50/50">
-                        <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">{row.age}</td>
-                        <td className="px-4 py-2.5 text-sm text-gray-700">{row.feedType}</td>
-                        <td className="px-4 py-2.5 text-sm text-right font-medium text-gray-800">{row.gPerBird}</td>
-                      </tr>
-                    ))}
+                    {FEEDING_GUIDE.map((row) => {
+                      const bg = row.phaseColor === 'green' ? 'bg-green-50/60' : row.phaseColor === 'orange' ? 'bg-orange-50/60' : 'bg-blue-50/60';
+                      const badge = row.phaseColor === 'green' ? 'bg-green-100 text-green-800' : row.phaseColor === 'orange' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800';
+                      return (
+                        <tr key={row.week} className={`${bg} hover:brightness-95`}>
+                          <td className="px-3 py-2 font-semibold text-gray-800">Wk {row.week}</td>
+                          <td className="px-3 py-2 text-gray-600">{row.ageRange}</td>
+                          <td className="px-3 py-2">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${badge}`}>{row.phase}</span>
+                          </td>
+                          <td className="px-3 py-2 text-right font-bold text-gray-900">{row.gPerBird}g</td>
+                          <td className="px-3 py-2 text-right text-gray-700">{(row.gPerBird * 10 / 1000).toFixed(2)} kg</td>
+                          <td className="px-3 py-2 text-right text-gray-700">{(row.gPerBird * 50 / 1000).toFixed(2)} kg</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
-              <div className="px-4 py-3 border-t bg-green-50/30 text-xs text-gray-500">
-                {GUIDE_SUPPLEMENTS}
+              <div className="px-4 py-2.5 border-t bg-amber-50/50 text-[11px] text-amber-800">
+                ⚠ Feed amounts are guides only. Adjust for breed, climate and management.
               </div>
             </div>
           </div>
 
-          {/* Daily Consumption Log */}
+          {/* Weekly Consumption Log */}
           <div className="bg-white rounded-xl border">
             <div className="p-5 border-b flex items-center justify-between">
-              <h2 className="font-bold text-lg">Daily consumption log</h2>
+              <div>
+                <h2 className="font-bold text-lg">Weekly consumption log</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Record total feed given per week — adjust if birds ate more or less than the guide</p>
+              </div>
               <button onClick={() => setAction('consume')}
                 className="text-sm text-green-700 font-medium hover:underline flex items-center gap-1">
-                <Plus size={14} /> Log today
+                <Plus size={14} /> Log this week
               </button>
             </div>
             {logs.length === 0 ? (
@@ -431,7 +466,7 @@ export default function FeedPage() {
                 <table className="w-full min-w-max">
                   <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                     <tr>
-                      <th className="px-4 py-3 text-left">Date</th>
+                      <th className="px-4 py-3 text-left">Week of</th>
                       <th className="px-4 py-3 text-left">Batch</th>
                       <th className="px-4 py-3 text-left">Feed type</th>
                       <th className="px-4 py-3 text-right">Given (kg)</th>
@@ -444,7 +479,9 @@ export default function FeedPage() {
                       const isWarning = log.notes && /reduc|refus|low|poor|weak|monitor/i.test(log.notes);
                       return (
                         <tr key={log.id} className="hover:bg-gray-50 group">
-                          <td className="px-4 py-3 text-sm">{new Date(log.recordedDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</td>
+                          <td className="px-4 py-3 text-sm">
+                            Wk of {new Date(log.recordedDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}
+                          </td>
                           <td className="px-4 py-3 text-sm font-medium">{log.batch?.batchNumber || '—'}</td>
                           <td className="px-4 py-3 text-sm">{log.feedType}</td>
                           <td className="px-4 py-3 text-right text-sm font-semibold">{fmtKg(Number(log.quantityUsed))} kg</td>
@@ -725,18 +762,21 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* LOG CONSUMPTION MODAL */}
+        {/* LOG WEEKLY CONSUMPTION MODAL */}
         {action === 'consume' && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
               <div className="p-5 border-b flex justify-between">
-                <h2 className="font-bold text-xl">Log Feed Consumption</h2>
+                <div>
+                  <h2 className="font-bold text-xl">Log Weekly Consumption</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Enter the week&apos;s starting date (Monday) and total feed given</p>
+                </div>
                 <button onClick={() => setAction('idle')} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
               </div>
               <form onSubmit={handleConsume} className="p-5 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Week starting (Mon) *</label>
                     <input type="date" required value={consumeForm.date}
                       onChange={(e) => setConsumeForm({ ...consumeForm, date: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
@@ -772,22 +812,22 @@ export default function FeedPage() {
                     <Info size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
                     <p className="text-sm text-blue-800">
                       Batch is <strong>~{batchAgeWeeks} weeks</strong> old.
-                      Recommended: <strong>{batchGuide.gPerBird}</strong>/bird/day of <strong>{batchGuide.feedType}</strong>.
+                      Recommended: <strong>{batchGuide.gPerBird}g</strong>/bird/day of <strong>{batchGuide.phase}</strong>.
                     </p>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Notes on appetite</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Notes / adjustments</label>
                   <input type="text" value={consumeForm.notes}
                     onChange={(e) => setConsumeForm({ ...consumeForm, notes: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    placeholder="e.g. Normal appetite, Slightly reduced — monitor" />
+                    placeholder="e.g. Increased by 5g from guide, reduced appetite Mon–Wed" />
                 </div>
                 <div className="flex gap-3">
                   <button type="submit" disabled={isSaving}
                     className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50">
-                    {isSaving ? 'Saving...' : 'Log Consumption'}
+                    {isSaving ? 'Saving...' : 'Log Weekly Consumption'}
                   </button>
                   <button type="button" onClick={() => setAction('idle')}
                     className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
@@ -804,7 +844,7 @@ export default function FeedPage() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
               <div className="p-5 border-b flex justify-between items-center">
-                <h2 className="font-bold text-xl">Edit Consumption Log</h2>
+                <h2 className="font-bold text-xl">Edit Weekly Log</h2>
                 <button onClick={() => { setAction('idle'); setEditingLog(null); }}
                   className="text-gray-400 hover:text-gray-600">
                   <X size={20} />
@@ -813,7 +853,7 @@ export default function FeedPage() {
               <form onSubmit={handleEditLog} className="p-5 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Week starting (Mon) *</label>
                     <input type="date" required value={editLogForm.date}
                       onChange={(e) => setEditLogForm({ ...editLogForm, date: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />

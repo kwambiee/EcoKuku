@@ -87,20 +87,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const log = await db.mortalityLog.create({
-      data: {
-        batchId,
-        date: new Date(date),
-        count: parseInt(count),
-        cause,
-        notes,
-      },
-      include: {
-        batch: {
-          select: { id: true, batchNumber: true },
+    const deaths = parseInt(count);
+
+    // Run mortality log + batch count decrement in a transaction so they stay in sync
+    const [log] = await db.$transaction([
+      db.mortalityLog.create({
+        data: {
+          batchId,
+          date: new Date(date),
+          count: deaths,
+          cause,
+          notes,
         },
-      },
-    });
+        include: { batch: { select: { id: true, batchNumber: true, currentCount: true } } },
+      }),
+      db.batch.update({
+        where: { id: batchId },
+        data: { currentCount: { decrement: deaths } },
+      }),
+    ]);
 
     return NextResponse.json(
       {
@@ -130,7 +135,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { mortalityLogId, ...updateData } = body;
+    const { mortalityLogId, count, ...rest } = body;
 
     if (!mortalityLogId) {
       return NextResponse.json(
@@ -139,15 +144,26 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const log = await db.mortalityLog.update({
-      where: { id: mortalityLogId },
-      data: updateData,
-      include: {
-        batch: {
-          select: { id: true, batchNumber: true },
-        },
-      },
-    });
+    // If count is being changed, adjust batch.currentCount by the difference
+    const existing = await db.mortalityLog.findUnique({ where: { id: mortalityLogId } });
+    if (!existing) return NextResponse.json({ error: 'Log not found' }, { status: 404 });
+
+    const updatePayload: any = { ...rest };
+    if (count !== undefined) updatePayload.count = parseInt(count);
+
+    const diff = count !== undefined ? parseInt(count) - existing.count : 0;
+
+    const [log] = await db.$transaction([
+      db.mortalityLog.update({
+        where: { id: mortalityLogId },
+        data: updatePayload,
+        include: { batch: { select: { id: true, batchNumber: true } } },
+      }),
+      ...(diff !== 0 ? [db.batch.update({
+        where: { id: existing.batchId },
+        data: { currentCount: { decrement: diff } }, // decrement positive diff, increment negative
+      })] : []),
+    ]);
 
     return NextResponse.json({
       message: 'Mortality log updated successfully',
