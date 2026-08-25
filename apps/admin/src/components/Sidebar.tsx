@@ -48,7 +48,7 @@ export function Sidebar() {
     <>
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-green-900 text-white px-4 h-14 flex items-center justify-between z-40">
-        <div className="font-bold text-base">EcoKuku Admin</div>
+        <div className="font-bold text-base">Kwamboka Admin</div>
         <button onClick={() => setIsOpen(!isOpen)} className="p-1.5 hover:bg-green-800 rounded" aria-label="Toggle menu">
           {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
@@ -62,8 +62,8 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className="p-5 border-b border-green-800 flex-shrink-0">
-          <div className="font-bold text-xl">EcoKuku Admin</div>
-          <div className="text-xs opacity-60 mt-0.5">Farm Management</div>
+          <div className="font-bold text-xl">Kwamboka Admin</div>
+          <div className="text-xs opacity-60 mt-0.5">Poultry Farm Management</div>
         </div>
 
         {/* Nav links */}

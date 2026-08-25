@@ -58,7 +58,7 @@ export async function notifyDriverAssigned(
   orderNumber: string, customerName: string,
   deliveryArea: string, items: string,
 ) {
-  const msg = `EcoKuku: Hi ${driverName}, you've been assigned order ${orderNumber}. Customer: ${customerName}. Deliver to: ${deliveryArea || 'TBD'}. Items: ${items}. Please confirm pickup.`;
+  const msg = `Kwamboka Poultry: Hi ${driverName}, you've been assigned order ${orderNumber}. Customer: ${customerName}. Deliver to: ${deliveryArea || 'TBD'}. Items: ${items}. Please confirm pickup.`;
   return sendSMS(driverPhone, msg);
 }
 
@@ -66,11 +66,11 @@ export async function notifyCustomerPickedUp(
   customerPhone: string, orderNumber: string,
   driverName: string, driverPhone: string,
 ) {
-  const msg = `EcoKuku: Your order ${orderNumber} is on the way! Driver: ${driverName} (${driverPhone}). Call if you need to reach them.`;
+  const msg = `Kwamboka Poultry: Your order ${orderNumber} is on the way! Driver: ${driverName} (${driverPhone}). Call if you need to reach them.`;
   return sendSMS(customerPhone, msg);
 }
 
 export async function notifyCustomerDelivered(customerPhone: string, orderNumber: string) {
-  const msg = `EcoKuku: Order ${orderNumber} delivered — thank you for your business! Order again at ecokuku.co.ke`;
+  const msg = `Kwamboka Poultry: Order ${orderNumber} delivered — thank you for choosing us! Visit kwambokapoultry.co.ke`;
   return sendSMS(customerPhone, msg);
 }

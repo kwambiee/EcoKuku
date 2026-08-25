@@ -41,7 +41,10 @@ function LoginForm() {
   return (
     <div className="w-full max-w-md space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-green-900">EcoKuku</h1>
+        <div>
+          <div className="text-2xl font-bold text-green-900 leading-tight">Kwamboka</div>
+          <div className="text-xs font-semibold tracking-widest uppercase text-green-700 opacity-70">Poultry Farm</div>
+        </div>
         <h2 className="mt-6 text-2xl font-bold tracking-tight text-gray-900">
           Admin Dashboard
         </h2>
@@ -69,7 +72,7 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-green-500 focus:outline-none focus:ring-green-500"
-              placeholder="admin@ecokuku.com"
+              placeholder="admin@kwambokapoultry.com"
             />
           </div>
 

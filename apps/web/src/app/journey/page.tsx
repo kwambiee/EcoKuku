@@ -49,8 +49,8 @@ export default function JourneyPage() {
         <div className="bg-green-900 text-white py-12 text-center">
           <div className="container-base">
             <div className="text-sm font-medium text-green-200 mb-3">FARM TRANSPARENCY</div>
-            <h1 className="text-4xl font-bold mb-3">The EcoKuku Journey</h1>
-            <p className="text-green-100 max-w-2xl mx-auto">From egg to your table — every step, no secrets.</p>
+            <h1 className="text-4xl font-bold mb-3">How We Raise Your Birds</h1>
+            <p className="text-green-100 max-w-2xl mx-auto">From egg to your table — every step, no secrets. This is what happens on the farm before your order arrives.</p>
           </div>
         </div>
 

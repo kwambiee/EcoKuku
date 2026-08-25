@@ -133,7 +133,7 @@ export default function ReportsPage() {
   const downloadCSV = () => {
     if (!data) return;
     const rows: (string | number)[][] = [
-      ['EcoKuku Farm — Profit & Loss Report'],
+      ['Kwamboka Poultry Farm — Profit & Loss Report'],
       ['Generated:', new Date().toLocaleDateString('en-KE')],
       [],
       ['SUMMARY'],
@@ -172,7 +172,7 @@ export default function ReportsPage() {
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url;
-    a.download = `ecokuku-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `kwamboka-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
     toast.success('Ledger CSV downloaded');
   };
@@ -180,7 +180,7 @@ export default function ReportsPage() {
   const printReport = () => {
     if (!data) return;
     const s = data.summary;
-    const html = `<!DOCTYPE html><html><head><title>EcoKuku Farm Report — ${new Date().toLocaleDateString('en-KE')}</title>
+    const html = `<!DOCTYPE html><html><head><title>Kwamboka Poultry Farm Report — ${new Date().toLocaleDateString('en-KE')}</title>
 <style>
   body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; font-size: 13px; }
   h1 { font-size: 22px; margin: 0 0 4px; color: #14532d; }
@@ -198,7 +198,7 @@ export default function ReportsPage() {
   .text-right { text-align: right; }
   @media print { body { padding: 0; } }
 </style></head><body>
-<h1>EcoKuku Farm — P&L Report</h1>
+<h1>Kwamboka Poultry Farm — P&L Report</h1>
 <p class="meta">Generated: ${new Date().toLocaleDateString('en-KE', { dateStyle: 'long' })}</p>
 <div class="kpi-grid">
   <div class="kpi"><div class="kpi-label">Total Revenue</div><div class="kpi-value green">${fmt(s.totalRevenue)}</div></div>

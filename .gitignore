@@ -20,6 +20,8 @@ build
 .env.development.local
 .env.test.local
 .env.production.local
+# Production secrets — template files only, never actual .env.production
+.env.production
 
 # Logs
 npm-debug.log*

@@ -84,7 +84,7 @@ export default function DashboardPage() {
               {data ? `Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, ${data.greeting.name}` : 'Dashboard'}
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              {data?.greeting.date || ''} &middot; EcoKuku Farm
+              {data?.greeting.date || ''} &middot; Kwamboka Poultry Farm
             </p>
           </div>
           {alertCount > 0 && (

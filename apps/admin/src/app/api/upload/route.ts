@@ -6,6 +6,15 @@ import { adminAuthOptions } from '@/lib/auth';
 import { db } from '@ecokuku/db';
 
 async function getCloudinaryConfig() {
+  // 1. Check environment variables first (fastest, no DB round-trip)
+  const envCloudName = process.env.CLOUDINARY_CLOUDNAME || process.env.CLOUDINARY_CLOUD_NAME;
+  const envApiKey    = process.env.CLOUDINARY_APIKEY    || process.env.CLOUDINARY_API_KEY;
+  const envApiSecret = process.env.CLOUDINARY_APISECRET || process.env.CLOUDINARY_API_SECRET;
+  if (envCloudName && envApiKey && envApiSecret) {
+    return { cloudName: envCloudName, apiKey: envApiKey, apiSecret: envApiSecret };
+  }
+
+  // 2. Fall back to DB settings (legacy / admin-UI configured)
   try {
     const rows = await db.setting.findMany({
       where: { key: { in: ['cloudinary_cloud_name', 'cloudinary_api_key', 'cloudinary_api_secret'] } },

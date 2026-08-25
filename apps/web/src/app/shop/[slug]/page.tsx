@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@ecokuku/ui';
 import { Heart, Share2, Star, AlertCircle, Loader } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
+import { resolveImageUrl } from '@/lib/imageUrl';
 
 interface Product {
   id: string;
@@ -134,8 +135,19 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
           {/* Image */}
           <div>
-            <div className="bg-gray-100 rounded-lg p-8 aspect-square flex items-center justify-center mb-4">
-              <div className="text-9xl">🥚</div>
+            <div className="bg-gray-100 rounded-lg overflow-hidden aspect-square flex items-center justify-center mb-4">
+              {resolveImageUrl(product.image) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={resolveImageUrl(product.image)!}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-9xl">
+                  {product.category === 'EGGS' ? '🥚' : product.category === 'CHICKS' ? '🐣' : product.category === 'DRESSED_MEAT' ? '🍗' : '🐔'}
+                </div>
+              )}
             </div>
           </div>
 
@@ -263,9 +275,9 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
           </div>
         )}
 
-        {/* About EcoKuku */}
+        {/* About the Farm */}
         <div className="border-t mt-16 pt-12">
-          <h2 className="text-2xl font-bold mb-6">About EcoKuku</h2>
+          <h2 className="text-2xl font-bold mb-6">About Kwamboka Poultry Farm</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
               <h3 className="text-lg font-semibold mb-4">Farm to Table Quality</h3>

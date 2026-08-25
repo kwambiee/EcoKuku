@@ -19,27 +19,26 @@ export function Navbar() {
   const cartCount = hydrated ? items.reduce((sum, item) => sum + item.quantity, 0) : 0;
 
   return (
-    <nav className="sticky top-0 z-40 bg-green-900 text-white border-b border-green-800">
+    <nav className="sticky top-0 z-40 bg-green-900 text-white border-b border-green-800/60">
       <div className="container-base">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-[60px]">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 flex-shrink-0">
-            <div className="w-8 h-8 bg-amber-200 rounded-full flex items-center justify-center">
-              <span className="text-lg font-bold text-amber-800">🐔</span>
-            </div>
+          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
+            <div className="w-7 h-7 bg-amber-200 rounded-full flex items-center justify-center text-base leading-none">🐔</div>
             <div>
-              <div className="font-bold text-base">EcoKuku</div>
-              <div className="text-xs opacity-75 -mt-1">Farm fresh</div>
+              <div className="font-display font-bold text-[15px] leading-tight tracking-tight">Kwamboka</div>
+              <div className="text-[10px] opacity-50 tracking-widest uppercase -mt-0.5">Poultry Farm</div>
             </div>
           </Link>
 
           {/* Desktop Nav Links */}
-          <div className="hidden md:flex gap-8">
-            <Link href="/" className="hover:text-amber-200 transition-colors">Home</Link>
-            <Link href="/shop" className="hover:text-amber-200 transition-colors">Shop</Link>
-            <Link href="/batches" className="hover:text-amber-200 transition-colors">Book a Batch</Link>
-            <Link href="/journey" className="hover:text-amber-200 transition-colors">Our Farm</Link>
-            <Link href="/about" className="hover:text-amber-200 transition-colors">About</Link>
+          <div className="hidden md:flex items-center gap-6">
+            <Link href="/" className="text-xs font-semibold tracking-widest uppercase text-white/70 hover:text-amber-200 transition-colors">Home</Link>
+            <Link href="/shop" className="text-xs font-semibold tracking-widest uppercase text-white/70 hover:text-amber-200 transition-colors">Shop</Link>
+            <Link href="/breeds" className="text-xs font-semibold tracking-widest uppercase text-white/70 hover:text-amber-200 transition-colors">Breeds</Link>
+            <Link href="/batches" className="text-xs font-semibold tracking-widest uppercase text-white/70 hover:text-amber-200 transition-colors">Book a Batch</Link>
+            <Link href="/journey" className="text-xs font-semibold tracking-widest uppercase text-white/70 hover:text-amber-200 transition-colors">Our Farm</Link>
+            <Link href="/about" className="text-xs font-semibold tracking-widest uppercase text-white/70 hover:text-amber-200 transition-colors">About</Link>
           </div>
 
           {/* Right Actions */}
@@ -71,7 +70,7 @@ export function Navbar() {
 
             <Link
               href="/cart"
-              className="relative flex items-center gap-2 px-4 py-2 bg-amber-200 text-amber-800 rounded-md font-medium hover:bg-amber-100 transition-colors"
+              className="relative flex items-center gap-2 px-4 py-2 bg-amber-200 text-amber-800 rounded-md font-semibold text-sm hover:bg-amber-100 transition-colors"
             >
               <ShoppingCart className="w-4 h-4" />
               {cartCount > 0 && (
@@ -96,6 +95,7 @@ export function Navbar() {
           <div className="md:hidden border-t border-green-800 py-4 space-y-2">
             <Link href="/" className="block px-4 py-2 hover:bg-green-800 rounded-md transition-colors" onClick={() => setMobileMenuOpen(false)}>Home</Link>
             <Link href="/shop" className="block px-4 py-2 hover:bg-green-800 rounded-md transition-colors" onClick={() => setMobileMenuOpen(false)}>Shop</Link>
+            <Link href="/breeds" className="block px-4 py-2 hover:bg-green-800 rounded-md transition-colors" onClick={() => setMobileMenuOpen(false)}>Breeds</Link>
             <Link href="/batches" className="block px-4 py-2 hover:bg-green-800 rounded-md transition-colors" onClick={() => setMobileMenuOpen(false)}>Book a Batch</Link>
             <Link href="/journey" className="block px-4 py-2 hover:bg-green-800 rounded-md transition-colors" onClick={() => setMobileMenuOpen(false)}>Our Farm</Link>
             <Link href="/about" className="block px-4 py-2 hover:bg-green-800 rounded-md transition-colors" onClick={() => setMobileMenuOpen(false)}>About</Link>

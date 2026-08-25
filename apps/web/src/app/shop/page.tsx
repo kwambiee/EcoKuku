@@ -6,6 +6,7 @@ import { Footer } from '@/components/Footer';
 import Link from 'next/link';
 import { useCart } from '@/hooks/useCart';
 import { SlidersHorizontal, X } from 'lucide-react';
+import { resolveImageUrl } from '@/lib/imageUrl';
 
 interface Product {
   id: string;
@@ -206,9 +207,9 @@ export default function ShopPage() {
                     <Link key={product.id} href={`/shop/${product.id}`} className="group">
                       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-green-400 hover:shadow-md transition-all duration-200">
                         <div className="bg-green-50 h-40 flex items-center justify-center text-6xl relative group-hover:bg-green-100 transition-colors overflow-hidden">
-                          {product.image && product.image.startsWith('/uploads/') ? (
+                          {resolveImageUrl(product.image) ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={`http://localhost:3001${product.image}`} alt={product.name}
+                            <img src={resolveImageUrl(product.image)!} alt={product.name}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
                           ) : (
                             <span className="group-hover:scale-110 transition-transform duration-200 inline-block">

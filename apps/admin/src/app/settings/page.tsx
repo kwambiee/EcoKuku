@@ -260,8 +260,8 @@ export default function SettingsPage() {
           {/* ── FARM PROFILE ──────────────────────────────────────── */}
           <Section icon={<Building2 size={18} />} title="Farm Profile" subtitle="Name, contact, legal & payment details" defaultOpen>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Field label="Farm Name"><Input value={s.farm_name || ''} onChange={(v) => set('farm_name', v)} placeholder="EcoKuku Farm" /></Field>
-              <Field label="Contact Email"><Input value={s.contact_email || ''} onChange={(v) => set('contact_email', v)} type="email" placeholder="info@ecokuku.com" /></Field>
+              <Field label="Farm Name"><Input value={s.farm_name || ''} onChange={(v) => set('farm_name', v)} placeholder="Kwamboka Poultry Farm" /></Field>
+              <Field label="Contact Email"><Input value={s.contact_email || ''} onChange={(v) => set('contact_email', v)} type="email" placeholder="info@kwambokapoultry.co.ke" /></Field>
               <Field label="Contact Phone"><Input value={s.contact_phone || ''} onChange={(v) => set('contact_phone', v)} placeholder="+254712345678" /></Field>
               <Field label="Physical Location"><Input value={s.farm_location || ''} onChange={(v) => set('farm_location', v)} placeholder="Ruiru, Kiambu County" /></Field>
               <Field label="KRA PIN" hint="Used on invoices"><Input value={s.kra_pin || ''} onChange={(v) => set('kra_pin', v)} placeholder="P051234567X" /></Field>
@@ -662,7 +662,7 @@ export default function SettingsPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Email *</label>
-                <Input value={staffForm.email} onChange={(v) => setStaffForm({ ...staffForm, email: v })} type="email" placeholder="jane@ecokuku.com" />
+                <Input value={staffForm.email} onChange={(v) => setStaffForm({ ...staffForm, email: v })} type="email" placeholder="jane@kwambokapoultry.co.ke" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Phone</label>

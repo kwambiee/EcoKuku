@@ -12,7 +12,7 @@ export default function AboutPage() {
         <div className="bg-gradient-to-br from-green-900 to-green-700 text-white py-20 px-4">
           <div className="container-base max-w-3xl mx-auto text-center">
             <div className="text-5xl mb-4">🌿</div>
-            <h1 className="text-4xl font-bold mb-4">About EcoKuku</h1>
+            <h1 className="text-4xl font-bold mb-4">About Kwamboka Poultry Farm</h1>
             <p className="text-xl text-green-100 leading-relaxed">
               A family-run farm in Nairobi bringing you the freshest, healthiest poultry — raised with care, transparency, and a deep respect for nature.
             </p>
@@ -26,7 +26,7 @@ export default function AboutPage() {
               <div>
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">Our Story</h2>
                 <p className="text-gray-600 mb-4 leading-relaxed">
-                  EcoKuku was born from a simple belief: that families in Nairobi deserve access to clean, chemical-free chicken and eggs — and should be able to trust exactly where their food comes from.
+                  Kwamboka Poultry Farm was born from a simple belief: that families in Nairobi deserve access to clean, chemical-free chicken and eggs — and should be able to trust exactly where their food comes from.
                 </p>
                 <p className="text-gray-600 mb-4 leading-relaxed">
                   We started with a small flock and a commitment to organic farming. Today, we raise thousands of free-range birds using natural feed, zero antibiotics, and humane practices — then deliver directly to your door.
@@ -100,7 +100,7 @@ export default function AboutPage() {
                 <div key={c.label} className="flex flex-col items-center text-center bg-green-50 rounded-xl p-5">
                   {c.icon}
                   <p className="text-xs text-gray-500 mt-2">{c.label}</p>
-                  <p className="font-semibold text-gray-900 text-sm mt-0.5">{c.value}</p>
+                  <p className="font-semibold text-gray-900 text-sm mt-0.5">{c.value as string}</p>
                 </div>
               ))}
             </div>

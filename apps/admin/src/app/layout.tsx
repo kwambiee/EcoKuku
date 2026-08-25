@@ -4,8 +4,8 @@ import { Toaster } from 'sonner';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Admin Dashboard | EcoKuku',
-  description: 'Farm management and sales dashboard for EcoKuku poultry farm.',
+  title: 'Admin | Kwamboka Poultry Farm',
+  description: 'Farm management and sales dashboard for Kwamboka Poultry Farm.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

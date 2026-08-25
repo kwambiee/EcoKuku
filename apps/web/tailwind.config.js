@@ -41,7 +41,8 @@ module.exports = {
         lg: 'var(--border-radius-lg, 8px)',
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', '"Roboto"', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        display: ['Fraunces', 'Georgia', '"Times New Roman"', 'serif'],
         mono: ['"Fira Code"', 'monospace'],
       },
     },
