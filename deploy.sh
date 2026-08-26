@@ -64,6 +64,10 @@ ssh ${SERVER} "
   set -e
   cd ${REMOTE_ROOT}
 
+  echo '  → Discarding server-side local changes...'
+  git reset --hard HEAD
+  git clean -fd
+
   echo '  → Pulling latest code...'
   git pull origin main
 
