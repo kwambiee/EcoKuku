@@ -755,6 +755,24 @@ model GoalReview {
   @@index([period])
 }
 
+// ============= DAILY TASKS =============
+
+model DailyTask {
+  id        String    @id @default(cuid())
+  taskDate  String    // YYYY-MM-DD format
+  label     String
+  detail    String?
+  done      Boolean   @default(false)
+  doneAt    DateTime?
+  link      String?
+  createdBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([taskDate])
+  @@index([done])
+}
+
 // ============= STAFF ACCESS REQUESTS =============
 
 model StaffRequest {

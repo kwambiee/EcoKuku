@@ -5,9 +5,9 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import {
   LayoutDashboard, Egg, Bird, Leaf, Stethoscope, Package, ShoppingCart,
-  Truck, Users, BarChart3, Settings, Menu, X, ClipboardList, Receipt, LogOut, Target, TrendingUp,
+  Truck, Users, BarChart3, Settings, Menu, X, ClipboardList, Receipt, LogOut, Target, TrendingUp, KeyRound,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 const ALL_NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'STAFF'] },
@@ -36,6 +36,12 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [showPwModal, setShowPwModal] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [pwStatus, setPwStatus] = useState<{ type: 'error' | 'success'; msg: string } | null>(null);
+  const [pwLoading, setPwLoading] = useState(false);
+  const currentRef = useRef<HTMLInputElement>(null);
+
   const pathname = usePathname();
   const { data: session } = useSession();
   const role = (session?.user as any)?.role as string | undefined;
@@ -43,6 +49,45 @@ export function Sidebar() {
   const navItems = ALL_NAV_ITEMS.filter((item) => !role || item.roles.includes(role));
 
   const close = () => setIsOpen(false);
+
+  function openPwModal() {
+    setPwForm({ current: '', next: '', confirm: '' });
+    setPwStatus(null);
+    setShowPwModal(true);
+    setTimeout(() => currentRef.current?.focus(), 80);
+  }
+
+  async function handlePasswordChange(e: React.FormEvent) {
+    e.preventDefault();
+    if (pwForm.next !== pwForm.confirm) {
+      setPwStatus({ type: 'error', msg: 'New passwords do not match.' });
+      return;
+    }
+    if (pwForm.next.length < 8) {
+      setPwStatus({ type: 'error', msg: 'New password must be at least 8 characters.' });
+      return;
+    }
+    setPwLoading(true);
+    setPwStatus(null);
+    try {
+      const res = await fetch('/api/account/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.next }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPwStatus({ type: 'error', msg: data.error ?? 'Failed to change password.' });
+      } else {
+        setPwStatus({ type: 'success', msg: 'Password changed! Use the new password next time you log in.' });
+        setPwForm({ current: '', next: '', confirm: '' });
+      }
+    } catch {
+      setPwStatus({ type: 'error', msg: 'Network error. Please try again.' });
+    } finally {
+      setPwLoading(false);
+    }
+  }
 
   return (
     <>
@@ -101,6 +146,13 @@ export function Sidebar() {
               </span>
             )}
             <button
+              onClick={openPwModal}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-green-200 hover:text-white hover:bg-green-800 rounded-lg transition-colors mb-0.5"
+            >
+              <KeyRound className="w-3.5 h-3.5 flex-shrink-0" />
+              Change password
+            </button>
+            <button
               onClick={() => signOut({ callbackUrl: '/login' })}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-green-200 hover:text-white hover:bg-green-800 rounded-lg transition-colors"
             >
@@ -114,6 +166,95 @@ export function Sidebar() {
       {/* Mobile overlay */}
       {isOpen && (
         <div onClick={close} className="fixed inset-0 bg-black/50 z-20 lg:hidden" aria-hidden />
+      )}
+
+      {/* Change Password Modal */}
+      {showPwModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-green-700 dark:text-green-400" />
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Change Password</h2>
+              </div>
+              <button
+                onClick={() => setShowPwModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {pwStatus && (
+              <div className={`mb-4 px-3 py-2.5 rounded-lg text-xs ${
+                pwStatus.type === 'success'
+                  ? 'bg-green-50 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                  : 'bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+              }`}>
+                {pwStatus.msg}
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordChange} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Current password
+                </label>
+                <input
+                  ref={currentRef}
+                  type="password"
+                  required
+                  value={pwForm.current}
+                  onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  New password
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={pwForm.next}
+                  onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <p className="mt-0.5 text-[10px] text-gray-400">At least 8 characters</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Confirm new password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={pwForm.confirm}
+                  onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowPwModal(false)}
+                  className="flex-1 px-3 py-2 text-xs font-medium border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={pwLoading}
+                  className="flex-1 px-3 py-2 text-xs font-semibold bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors disabled:opacity-60"
+                >
+                  {pwLoading ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </>
   );

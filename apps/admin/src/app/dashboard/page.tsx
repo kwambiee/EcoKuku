@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { formatCurrency } from '@ecokuku/ui';
 import Link from 'next/link';
@@ -8,7 +8,32 @@ import {
   DollarSign, ShoppingCart, Egg, Bird, Wheat, CreditCard,
   Bell, CheckCircle, Circle, AlertTriangle, Clock,
   ArrowRight, TrendingUp, TrendingDown, Package, BarChart3, Target, Calculator,
+  Plus, Trash2, ChevronDown, ChevronUp, Syringe,
 } from 'lucide-react';
+
+interface BatchRow { batchNumber: string; batchType: string; detail: string; done: boolean }
+
+interface SystemTask {
+  label: string;
+  detail?: string;
+  done: boolean;
+  link?: string;
+  taskType?: string;
+  batches?: BatchRow[];
+}
+
+interface CarryOver { label: string; detail: string; link?: string }
+
+interface CustomTask {
+  id: string;
+  taskDate: string;
+  label: string;
+  detail?: string;
+  done: boolean;
+  link?: string;
+  createdBy?: string;
+  createdAt: string;
+}
 
 interface DashboardData {
   greeting: { name: string; date: string };
@@ -21,7 +46,8 @@ interface DashboardData {
     outstandingPayments: number; outstandingCount: number;
   };
   alerts: { type: 'red' | 'amber' | 'blue'; title: string; detail: string; link?: string }[];
-  tasks: { label: string; detail?: string; done: boolean; link?: string }[];
+  tasks: SystemTask[];
+  carriedOver: CarryOver[];
   recentOrders: { id: string; orderNumber: string; status: string; total: number; customerName: string; itemSummary: string; deliveryArea: string }[];
   eggsThisWeek: { days: { day: string; collected: number; good: number; isToday: boolean }[]; weekTotal: number; dailyAvg: number; qualityRate: string };
   batchesByType: Record<string, { id: string; batchNumber: string; type: string; currentCount: number; ageWeeks: number; breed?: string; alerts: string[] }[]>;
@@ -58,9 +84,27 @@ const ALERT_COLORS = {
   blue: { dot: 'bg-blue-500', bg: '' },
 };
 
+const TASK_TYPE_ICON: Record<string, React.ReactNode> = {
+  feed: <Wheat size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />,
+  eggs: <Egg size={14} className="text-yellow-500 flex-shrink-0 mt-0.5" />,
+  vaccination: <Syringe size={14} className="text-purple-500 flex-shrink-0 mt-0.5" />,
+  logistics: <ShoppingCart size={14} className="text-blue-500 flex-shrink-0 mt-0.5" />,
+  incubation: <Bird size={14} className="text-green-500 flex-shrink-0 mt-0.5" />,
+};
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Custom daily tasks
+  const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
+  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [newTaskLabel, setNewTaskLabel] = useState('');
+  const [newTaskDetail, setNewTaskDetail] = useState('');
+  const [addingTask, setAddingTask] = useState(false);
+  const addInputRef = useRef<HTMLInputElement>(null);
+  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     fetch('/api/dashboard')
@@ -68,10 +112,60 @@ export default function DashboardPage() {
       .then((d) => setData(d))
       .catch(() => {})
       .finally(() => setIsLoading(false));
+
+    fetch(`/api/daily-tasks?date=${today}`)
+      .then((r) => r.json())
+      .then((tasks: CustomTask[]) => setCustomTasks(Array.isArray(tasks) ? tasks : []))
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (showAddTask) setTimeout(() => addInputRef.current?.focus(), 60);
+  }, [showAddTask]);
+
+  async function toggleCustomTask(task: CustomTask) {
+    const updated = { ...task, done: !task.done };
+    setCustomTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+    await fetch(`/api/daily-tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ done: !task.done }),
+    });
+  }
+
+  async function deleteCustomTask(id: string) {
+    setCustomTasks((prev) => prev.filter((t) => t.id !== id));
+    await fetch(`/api/daily-tasks/${id}`, { method: 'DELETE' });
+  }
+
+  async function addCustomTask(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newTaskLabel.trim()) return;
+    setAddingTask(true);
+    try {
+      const res = await fetch('/api/daily-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: newTaskLabel, detail: newTaskDetail, taskDate: today }),
+      });
+      const task = await res.json();
+      setCustomTasks((prev) => [...prev, task]);
+      setNewTaskLabel('');
+      setNewTaskDetail('');
+      setShowAddTask(false);
+    } catch {} finally {
+      setAddingTask(false);
+    }
+  }
+
+  function toggleExpand(key: string) {
+    setExpandedTasks((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   const m = data?.metrics;
   const alertCount = data?.alerts.filter((a) => a.type === 'red' || a.type === 'amber').length || 0;
+  const todayCustom = customTasks.filter((t) => t.taskDate === today);
+  const carriedCustom = customTasks.filter((t) => t.taskDate < today && !t.done);
 
   return (
     <div className="flex">
@@ -224,32 +318,179 @@ export default function DashboardPage() {
               </div>
 
               {/* Today's Tasks */}
-              <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200">
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-                  <Clock size={16} className="text-gray-500" />
-                  <h2 className="font-bold text-gray-900">Today&apos;s tasks</h2>
-                </div>
-                {data.tasks.length === 0 ? (
-                  <div className="p-8 text-center text-gray-400 text-sm">No tasks for today</div>
-                ) : (
-                  <div className="divide-y divide-gray-100">
-                    {data.tasks.map((task, i) => (
-                      <Link key={i} href={task.link || '#'} className="flex items-start gap-3 px-5 py-3 hover:bg-gray-50 transition">
-                        {task.done ? (
-                          <CheckCircle size={18} className="text-green-500 mt-0.5 flex-shrink-0" />
-                        ) : (
-                          <Circle size={18} className="text-gray-300 mt-0.5 flex-shrink-0" />
-                        )}
-                        <div>
-                          <p className={`text-sm ${task.done ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.label}</p>
-                          {task.detail && (
-                            <p className={`text-xs ${task.done ? 'text-gray-300' : 'text-amber-600'}`}>{task.detail}</p>
-                          )}
-                        </div>
-                      </Link>
-                    ))}
+              <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 flex flex-col">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Clock size={16} className="text-gray-500" />
+                    <h2 className="font-bold text-gray-900">Today&apos;s tasks</h2>
                   </div>
+                  <button
+                    onClick={() => setShowAddTask((v) => !v)}
+                    className="flex items-center gap-1 text-xs font-medium text-green-700 hover:text-green-900 px-2 py-1 rounded-lg hover:bg-green-50 transition"
+                  >
+                    <Plus size={13} /> Add
+                  </button>
+                </div>
+
+                {/* Add task form */}
+                {showAddTask && (
+                  <form onSubmit={addCustomTask} className="px-5 py-3 bg-green-50 border-b border-green-100 space-y-2">
+                    <input
+                      ref={addInputRef}
+                      type="text"
+                      placeholder="Task description…"
+                      value={newTaskLabel}
+                      onChange={(e) => setNewTaskLabel(e.target.value)}
+                      className="w-full text-sm px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Detail (optional)"
+                      value={newTaskDetail}
+                      onChange={(e) => setNewTaskDetail(e.target.value)}
+                      className="w-full text-xs px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-green-400 bg-white text-gray-600"
+                    />
+                    <div className="flex gap-2">
+                      <button type="submit" disabled={addingTask || !newTaskLabel.trim()}
+                        className="flex-1 py-1.5 text-xs font-semibold bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-50 transition">
+                        {addingTask ? 'Adding…' : 'Add task'}
+                      </button>
+                      <button type="button" onClick={() => setShowAddTask(false)}
+                        className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg transition">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
                 )}
+
+                <div className="flex-1 overflow-y-auto">
+                  {/* Carry-over: system tasks from previous days not done */}
+                  {(data.carriedOver.length > 0 || carriedCustom.length > 0) && (
+                    <div className="border-b border-amber-100 bg-amber-50">
+                      <p className="px-5 pt-2.5 text-[10px] font-bold text-amber-600 uppercase tracking-wider">Undone from previous days</p>
+                      {data.carriedOver.map((co, i) => (
+                        <Link key={i} href={co.link || '#'} className="flex items-start gap-3 px-5 py-2.5 hover:bg-amber-100/60 transition">
+                          <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-xs font-medium text-amber-800">{co.label}</p>
+                            <p className="text-[11px] text-amber-600">{co.detail}</p>
+                          </div>
+                        </Link>
+                      ))}
+                      {carriedCustom.map((task) => (
+                        <div key={task.id} className="flex items-start gap-3 px-5 py-2.5 group">
+                          <button onClick={() => toggleCustomTask(task)} className="mt-0.5 flex-shrink-0">
+                            <Circle size={14} className="text-amber-400" />
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-amber-800 truncate">{task.label}</p>
+                            {task.detail && <p className="text-[11px] text-amber-600">{task.detail}</p>}
+                            <p className="text-[10px] text-amber-400">{new Date(task.taskDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</p>
+                          </div>
+                          <button onClick={() => deleteCustomTask(task.id)} className="opacity-0 group-hover:opacity-100 text-amber-400 hover:text-red-500 transition">
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="pb-1" />
+                    </div>
+                  )}
+
+                  {/* System tasks (derived from farm data) */}
+                  {data.tasks.length === 0 && todayCustom.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400 text-sm">
+                      <CheckCircle size={24} className="mx-auto mb-2 text-green-300" />
+                      No tasks yet — add one above
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {data.tasks.map((task, i) => {
+                        const key = `sys-${i}`;
+                        const hasBatches = task.batches && task.batches.length > 0;
+                        const isExpanded = expandedTasks[key];
+                        const icon = TASK_TYPE_ICON[task.taskType || ''] ?? null;
+
+                        return (
+                          <div key={key}>
+                            <div className="flex items-start gap-3 px-5 py-3 hover:bg-gray-50 transition">
+                              {task.done
+                                ? <CheckCircle size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
+                                : <Circle size={16} className="text-gray-300 mt-0.5 flex-shrink-0" />
+                              }
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start gap-1.5">
+                                  {icon}
+                                  <div className="flex-1">
+                                    <Link href={task.link || '#'}>
+                                      <p className={`text-sm font-medium ${task.done ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.label}</p>
+                                    </Link>
+                                    {task.detail && (
+                                      <p className={`text-xs mt-0.5 ${task.done ? 'text-gray-300' : task.taskType === 'vaccination' ? 'text-purple-600' : 'text-gray-500'}`}>
+                                        {task.detail}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {hasBatches && (
+                                <button onClick={() => toggleExpand(key)} className="text-gray-400 hover:text-gray-600 mt-0.5 flex-shrink-0">
+                                  {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Per-batch sub-rows */}
+                            {hasBatches && isExpanded && (
+                              <div className="bg-gray-50 border-t border-gray-100">
+                                {task.batches!.map((row, j) => (
+                                  <div key={j} className="flex items-center gap-2 px-8 py-1.5 border-b border-gray-100 last:border-0">
+                                    {row.done
+                                      ? <CheckCircle size={12} className="text-green-500 flex-shrink-0" />
+                                      : <Circle size={12} className="text-gray-300 flex-shrink-0" />
+                                    }
+                                    <span className="text-xs font-medium text-gray-600 w-16 flex-shrink-0">{row.batchNumber}</span>
+                                    <span className={`text-xs ${row.done ? 'text-green-600' : 'text-gray-400'}`}>{row.detail}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Custom tasks for today */}
+                      {todayCustom.length > 0 && (
+                        <>
+                          {data.tasks.length > 0 && (
+                            <div className="px-5 pt-2 pb-0.5">
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Added manually</p>
+                            </div>
+                          )}
+                          {todayCustom.map((task) => (
+                            <div key={task.id} className={`flex items-start gap-3 px-5 py-3 hover:bg-gray-50 group transition ${task.done ? 'opacity-60' : ''}`}>
+                              <button onClick={() => toggleCustomTask(task)} className="mt-0.5 flex-shrink-0">
+                                {task.done
+                                  ? <CheckCircle size={16} className="text-green-500" />
+                                  : <Circle size={16} className="text-gray-300" />
+                                }
+                              </button>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm ${task.done ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.label}</p>
+                                {task.detail && <p className="text-xs text-gray-400 mt-0.5">{task.detail}</p>}
+                              </div>
+                              <button
+                                onClick={() => deleteCustomTask(task.id)}
+                                className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition mt-0.5 flex-shrink-0"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
