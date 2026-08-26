@@ -13,6 +13,7 @@
   "dependencies": {
     "@ecokuku/db": "*",
     "@ecokuku/ui": "*",
+    "@types/nodemailer": "^6.4.23",
     "axios": "^1.5.0",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.10.0",
@@ -20,6 +21,7 @@
     "lucide-react": "^0.292.0",
     "next": "^14.0.0",
     "next-auth": "^4.23.0",
+    "nodemailer": "^7.0.13",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-query": "^3.39.3",

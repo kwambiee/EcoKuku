@@ -8,8 +8,140 @@ import { toast } from 'sonner';
 import {
   Save, ChevronDown, ChevronUp, Building2, Bell, Truck, DollarSign,
   Users, Plug, Plus, Trash2, Edit2, X, Shield, Eye, EyeOff, CheckCircle,
-  Clock, RefreshCw, AlertTriangle,
+  Clock, RefreshCw, AlertTriangle, UserCheck, UserX, Copy,
 } from 'lucide-react';
+
+// ─── Pending Staff Requests Component ──────────────────────────────────────
+
+interface StaffRequestRow {
+  id: string; name: string; email: string; phone?: string;
+  role: string; message?: string; status: string; createdAt: string;
+}
+
+function PendingRequests() {
+  const [requests, setRequests] = useState<StaffRequestRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [processing, setProcessing] = useState<string | null>(null);
+  const [approvedPassword, setApprovedPassword] = useState<{ name: string; password: string } | null>(null);
+
+  const fetch_ = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/staff-requests?status=PENDING');
+      const data = await res.json();
+      setRequests(data.data || []);
+    } catch { setRequests([]); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetch_(); }, [fetch_]);
+
+  const act = async (requestId: string, action: 'APPROVE' | 'REJECT') => {
+    setProcessing(requestId);
+    try {
+      const res = await fetch('/api/staff-requests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (action === 'APPROVE' && data.tempPassword) {
+        const req = requests.find((r) => r.id === requestId);
+        setApprovedPassword({ name: req?.name || 'Staff', password: data.tempPassword });
+      }
+      await fetch_();
+      toast.success(action === 'APPROVE' ? 'Account created' : 'Request rejected');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  if (loading) return null;
+  if (requests.length === 0 && !approvedPassword) return (
+    <div>
+      <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+        <UserCheck size={14} /> Access Requests
+        <span className="text-[10px] font-normal text-gray-400 ml-1">
+          Share this link with staff: <a href="/request-access" target="_blank" className="text-green-700 underline">/request-access</a>
+        </span>
+      </p>
+      <p className="text-xs text-gray-400 border border-dashed border-gray-200 rounded-lg px-4 py-3">No pending requests.</p>
+    </div>
+  );
+
+  return (
+    <div>
+      <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+        <UserCheck size={14} /> Access Requests
+        {requests.length > 0 && (
+          <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">{requests.length} pending</span>
+        )}
+        <span className="text-[10px] font-normal text-gray-400 ml-auto">
+          Share: <a href="/request-access" target="_blank" className="text-green-700 underline">admin.kwambokapoultry.co.ke/request-access</a>
+        </span>
+      </p>
+
+      {/* Approved password reveal */}
+      {approvedPassword && (
+        <div className="mb-3 bg-green-50 border border-green-200 rounded-lg p-3 flex items-start gap-3">
+          <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-green-800">{approvedPassword.name} approved!</p>
+            <p className="text-xs text-green-700 mt-0.5">
+              Temp password: <span className="font-mono font-bold tracking-wider">{approvedPassword.password}</span>
+              <button onClick={() => { navigator.clipboard.writeText(approvedPassword.password); toast.success('Copied'); }}
+                className="ml-2 text-green-600 hover:text-green-800"><Copy size={11} /></button>
+            </p>
+            <p className="text-[10px] text-green-600 mt-1">Share this with {approvedPassword.name}. They should change it on first login. An email was also sent if SMTP is configured.</p>
+          </div>
+          <button onClick={() => setApprovedPassword(null)} className="text-green-400 hover:text-green-600"><X size={14} /></button>
+        </div>
+      )}
+
+      {requests.length > 0 && (
+        <div className="rounded-xl border overflow-hidden divide-y divide-gray-100">
+          {requests.map((req) => (
+            <div key={req.id} className="px-4 py-3 flex items-start gap-3 hover:bg-gray-50">
+              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 text-sm font-bold text-amber-700">
+                {req.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900">{req.name}</p>
+                <p className="text-xs text-gray-500">{req.email}{req.phone ? ` · ${req.phone}` : ''}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${req.role === 'DRIVER' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                    {req.role === 'DRIVER' ? 'Delivery / Rider' : 'Farm Staff'}
+                  </span>
+                  <span className="text-[10px] text-gray-400">{new Date(req.createdAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</span>
+                </div>
+                {req.message && <p className="text-xs text-gray-500 italic mt-1 line-clamp-2">"{req.message}"</p>}
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button
+                  onClick={() => act(req.id, 'APPROVE')}
+                  disabled={processing === req.id}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-green-800 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
+                >
+                  {processing === req.id ? '…' : <><UserCheck size={11} /> Approve</>}
+                </button>
+                <button
+                  onClick={() => act(req.id, 'REJECT')}
+                  disabled={processing === req.id}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-semibold hover:bg-red-100 disabled:opacity-50"
+                >
+                  <UserX size={11} /> Reject
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -521,6 +653,9 @@ export default function SettingsPage() {
                   </div>
                 )}
               </div>
+
+              {/* ── Pending Access Requests ───────────────────────── */}
+              <PendingRequests />
 
               {/* Activity log */}
               {activityLog.length > 0 && (

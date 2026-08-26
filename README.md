@@ -105,6 +105,37 @@ npm run dev --workspace=apps/admin
 
 ---
 
+
+export DATABASE_URL="postgresql://ecokuku:HsjS9l6%40LigWfHap@localhost:5432/ecokuku_prod"
+
+./node_modules/.bin/prisma db execute \
+  --schema=packages/db/prisma/schema.prisma \
+  --stdin <<'SQL'
+INSERT INTO "User" (id, name, email, password, role, "isActive", "createdAt", "updatedAt")
+VALUES (
+  gen_random_uuid()::text,
+  'Joy Kwamboka',
+  'joy.kwamboka@kwambokapoultry.co.ke',
+  '$2a$10$BEyUISbMFPWF7poTk2X1X.yqwrkJ4RtRsGrVyLliTo1BHMuHM2T6q',
+  'ADMIN',
+  true,
+  NOW(),
+  NOW()
+);
+INSERT INTO "User" (id, name, email, password, role, "isActive", "createdAt", "updatedAt")
+VALUES (
+  gen_random_uuid()::text,
+  'Chris',
+  'chris@kwambokapoultry.co.ke',
+  '$2a$10$BEyUISbMFPWF7poTk2X1X.yqwrkJ4RtRsGrVyLliTo1BHMuHM2T6q',
+  'ADMIN',
+  true,
+  NOW(),
+  NOW()
+);
+SQL
+
+
 ## Customer App Pages
 
 | Page | URL | Description |

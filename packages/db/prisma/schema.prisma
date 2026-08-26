@@ -754,3 +754,21 @@ model GoalReview {
   @@unique([goalId, period])
   @@index([period])
 }
+
+// ============= STAFF ACCESS REQUESTS =============
+
+model StaffRequest {
+  id             String   @id @default(cuid())
+  name           String
+  email          String
+  phone          String?
+  role           String   @default("STAFF") // STAFF | DRIVER
+  message        String?  @db.Text
+  status         String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  rejectedReason String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
