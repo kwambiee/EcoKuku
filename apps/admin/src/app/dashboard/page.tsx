@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import { Sidebar } from '@/components/Sidebar';
 import { formatCurrency } from '@ecokuku/ui';
 import Link from 'next/link';
@@ -8,7 +9,7 @@ import {
   DollarSign, ShoppingCart, Egg, Bird, Wheat, CreditCard,
   Bell, CheckCircle, Circle, AlertTriangle, Clock,
   ArrowRight, TrendingUp, TrendingDown, Package, BarChart3, Target, Calculator,
-  Plus, Trash2, ChevronDown, ChevronUp, Syringe,
+  Plus, Trash2, ChevronDown, ChevronUp, Syringe, X,
 } from 'lucide-react';
 
 interface BatchRow { batchNumber: string; batchType: string; detail: string; done: boolean }
@@ -92,9 +93,44 @@ const TASK_TYPE_ICON: Record<string, React.ReactNode> = {
   incubation: <Bird size={14} className="text-green-500 flex-shrink-0 mt-0.5" />,
 };
 
+// Unique key for an alert — used to track dismissals in localStorage
+function alertKey(alert: { type: string; title: string; detail: string }) {
+  return `alert::${alert.type}::${alert.title}::${alert.detail}`;
+}
+
+const DISMISS_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 export default function DashboardPage() {
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as any)?.role === 'ADMIN';
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Dismissed alerts — stored in localStorage, expire after 24 h
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('kpf_dismissed_alerts') || '[]') as { key: string; at: number }[];
+      const now = Date.now();
+      const valid = raw.filter((r) => now - r.at < DISMISS_TTL_MS);
+      if (valid.length !== raw.length) {
+        localStorage.setItem('kpf_dismissed_alerts', JSON.stringify(valid));
+      }
+      setDismissedKeys(new Set(valid.map((r) => r.key)));
+    } catch { /* localStorage unavailable */ }
+  }, []);
+
+  function dismissAlert(alert: { type: string; title: string; detail: string }) {
+    const key = alertKey(alert);
+    setDismissedKeys((prev) => new Set([...prev, key]));
+    try {
+      const raw = JSON.parse(localStorage.getItem('kpf_dismissed_alerts') || '[]') as { key: string; at: number }[];
+      raw.push({ key, at: Date.now() });
+      localStorage.setItem('kpf_dismissed_alerts', JSON.stringify(raw));
+    } catch { /* ignore */ }
+  }
 
   // Custom daily tasks
   const [customTasks, setCustomTasks] = useState<CustomTask[]>([]);
@@ -163,7 +199,8 @@ export default function DashboardPage() {
   }
 
   const m = data?.metrics;
-  const alertCount = data?.alerts.filter((a) => a.type === 'red' || a.type === 'amber').length || 0;
+  const visibleAlerts = (data?.alerts ?? []).filter((a) => !dismissedKeys.has(alertKey(a)));
+  const alertCount = visibleAlerts.filter((a) => a.type === 'red' || a.type === 'amber').length;
   const todayCustom = customTasks.filter((t) => t.taskDate === today);
   const carriedCustom = customTasks.filter((t) => t.taskDate < today && !t.done);
 
@@ -293,25 +330,47 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
               {/* Alerts & Actions Needed */}
               <div className="lg:col-span-3 bg-white rounded-xl border border-gray-200">
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-                  <Bell size={16} className="text-gray-500" />
-                  <h2 className="font-bold text-gray-900">Alerts & actions needed</h2>
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell size={16} className="text-gray-500" />
+                    <h2 className="font-bold text-gray-900">Alerts & actions needed</h2>
+                  </div>
+                  {isAdmin && dismissedKeys.size > 0 && (
+                    <button
+                      onClick={() => {
+                        setDismissedKeys(new Set());
+                        try { localStorage.removeItem('kpf_dismissed_alerts'); } catch { /* */ }
+                      }}
+                      className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                    >
+                      Restore {dismissedKeys.size} hidden
+                    </button>
+                  )}
                 </div>
-                {data.alerts.length === 0 ? (
+                {visibleAlerts.length === 0 ? (
                   <div className="p-8 text-center text-gray-400 text-sm">
                     <CheckCircle size={28} className="mx-auto mb-2 text-green-400" />
-                    All clear — no urgent actions needed
+                    {dismissedKeys.size > 0 ? 'All alerts dismissed for today' : 'All clear — no urgent actions needed'}
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    {data.alerts.map((alert, i) => (
-                      <Link key={i} href={alert.link || '#'} className="flex items-start gap-3 px-5 py-3.5 hover:bg-gray-50 transition">
+                    {visibleAlerts.map((alert, i) => (
+                      <div key={i} className="flex items-start gap-3 px-5 py-3.5 hover:bg-gray-50 transition group">
                         <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${ALERT_COLORS[alert.type].dot}`} />
-                        <div>
+                        <Link href={alert.link || '#'} className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900">{alert.title}</p>
                           <p className="text-xs text-gray-500">{alert.detail}</p>
-                        </div>
-                      </Link>
+                        </Link>
+                        {isAdmin && (
+                          <button
+                            onClick={() => dismissAlert(alert)}
+                            title="Dismiss for 24 hours"
+                            className="flex-shrink-0 p-1 rounded-md text-gray-300 hover:text-gray-600 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}
