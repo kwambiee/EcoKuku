@@ -96,7 +96,11 @@ class MpesaClient {
         BusinessShortCode: this.config.businessShortCode,
         Password: password,
         Timestamp: timestamp,
-        TransactionType: 'CustomerPayBillOnline',
+        // Sandbox only supports CustomerPayBillOnline for STK push (shortcode 174379).
+      // Production till numbers use CustomerBuyGoodsOnline.
+      TransactionType: this.config.environment === 'sandbox'
+        ? 'CustomerPayBillOnline'
+        : 'CustomerBuyGoodsOnline',
         Amount: Math.ceil(payload.amount), // M-PESA requires whole numbers
         PartyA: phone,
         PartyB: this.config.businessShortCode,
@@ -148,27 +152,26 @@ class MpesaClient {
   }
 }
 
-// Singleton instance
-let mpesaClient: MpesaClient | null = null;
-
 export function getMpesaClient(): MpesaClient {
-  if (!mpesaClient) {
-    const config: MpesaConfig = {
-      consumerKey: process.env.MPESA_CONSUMER_KEY || '',
-      consumerSecret: process.env.MPESA_CONSUMER_SECRET || '',
-      businessShortCode: process.env.MPESA_BUSINESS_SHORT_CODE || '',
-      passkey: process.env.MPESA_PASSKEY || '',
-      environment: (process.env.MPESA_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
-    };
+  // Read env vars fresh on every call — no singleton.
+  // This prevents stale config from an earlier server boot where some vars weren't set yet.
+  const config: MpesaConfig = {
+    consumerKey:       process.env.MPESA_CONSUMER_KEY    || '',
+    consumerSecret:    process.env.MPESA_CONSUMER_SECRET  || '',
+    businessShortCode: process.env.MPESA_SHORTCODE        || process.env.MPESA_BUSINESS_SHORT_CODE || '',
+    passkey:           process.env.MPESA_PASSKEY          || '',
+    environment:       (process.env.MPESA_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
+  };
 
-    if (!config.consumerKey || !config.consumerSecret) {
-      throw new Error('M-PESA credentials not configured');
-    }
+  const missing = (Object.entries(config) as [string, string][])
+    .filter(([k, v]) => k !== 'environment' && !v)
+    .map(([k]) => k);
 
-    mpesaClient = new MpesaClient(config);
+  if (missing.length > 0) {
+    throw new Error(`M-PESA not configured — missing env vars: ${missing.join(', ')}`);
   }
 
-  return mpesaClient;
+  return new MpesaClient(config);
 }
 
 export type { STKPushPayload, MpesaConfig };
