@@ -794,3 +794,21 @@ model StaffRequest {
   @@index([status])
   @@index([createdAt])
 }
+
+// ============= CUSTOMER BOOKING INQUIRIES =============
+
+model ChickInquiry {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  phone     String
+  ageGroup  String   // "day-old" | "1-week" | "2-weeks" | "3-weeks" | "kienyeji"
+  quantity  Int?
+  notes     String?
+  status    String   @default("PENDING") // PENDING | CONTACTED | COMPLETED | CANCELLED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

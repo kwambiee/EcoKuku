@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import {
   LayoutDashboard, Egg, Bird, Leaf, Stethoscope, Package, ShoppingCart,
-  Truck, Users, BarChart3, Settings, Menu, X, ClipboardList, Receipt, LogOut, Target, TrendingUp, KeyRound,
+  Truck, Users, BarChart3, Settings, Menu, X, ClipboardList, Receipt, LogOut, Target, TrendingUp, KeyRound, MessageSquare,
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 
@@ -19,6 +19,7 @@ const ALL_NAV_ITEMS = [
   { label: 'Products & Inventory', href: '/products', icon: Package, roles: ['ADMIN', 'STAFF'] },
   { label: 'Orders', href: '/orders', icon: ShoppingCart, roles: ['ADMIN', 'STAFF'] },
   { label: 'Batch Bookings', href: '/batch-bookings', icon: ClipboardList, roles: ['ADMIN', 'STAFF'] },
+  { label: 'Booking Inquiries', href: '/inquiries', icon: MessageSquare, roles: ['ADMIN', 'STAFF'] },
   { label: 'Logistics', href: '/logistics', icon: Truck, roles: ['ADMIN', 'STAFF', 'DRIVER'] },
   { label: 'Customers', href: '/customers', icon: Users, roles: ['ADMIN'] },
   { label: 'Reports', href: '/reports', icon: BarChart3, roles: ['ADMIN'] },

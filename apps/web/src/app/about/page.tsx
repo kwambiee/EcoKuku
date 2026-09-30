@@ -94,7 +94,7 @@ export default function AboutPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
               {[
                 { icon: <MapPin size={20} className="text-green-600" />, label: 'Location', value: 'Nairobi, Kenya' },
-                { icon: <Phone size={20} className="text-green-600" />, label: 'Phone', value: '+254 712 345 678' },
+                { icon: <Phone size={20} className="text-green-600" />, label: 'Phone', value: '0182 193 380' },
                 { icon: <Mail size={20} className="text-green-600" />, label: 'Email', value: 'info@ecokuku.com' },
               ].map((c) => (
                 <div key={c.label} className="flex flex-col items-center text-center bg-green-50 rounded-xl p-5">

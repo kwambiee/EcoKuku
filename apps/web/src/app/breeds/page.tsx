@@ -282,7 +282,7 @@ export default function BreedsPage() {
                 and whether you want meat, eggs, or both. We&apos;ll recommend the right breed for your situation. No sales pitch.
               </p>
               <a
-                href="https://wa.me/254712345678?text=Hello!%20I%27d%20like%20help%20choosing%20the%20right%20breed%20for%20my%20farm."
+                href="https://wa.me/254182193380?text=Hello!%20I%27d%20like%20help%20choosing%20the%20right%20breed%20for%20my%20farm."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-[#25D366] text-white px-5 py-3 rounded-xl font-semibold text-sm hover:bg-[#1ebe5d] transition-colors"

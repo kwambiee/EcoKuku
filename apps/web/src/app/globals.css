@@ -1,51 +1,79 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,300;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens ───────────────────────────────────────────────── */
+:root {
+  --forest:       #1B4D2E;
+  --forest-mid:   #245C38;
+  --forest-dark:  #132A1A;
+  --forest-light: #EBF5EE;
+  --amber:        #C9841A;
+  --amber-dark:   #A8690E;
+  --amber-light:  #FFF3DC;
+  --cream:        #F7F3EC;
+  --cream-dark:   #EDE7DA;
+  --text-dark:    #1C2116;
+  --text-mid:     #4A5240;
+  --text-soft:    #7A8470;
+}
+
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-800;
+    background: var(--cream);
+    color: var(--text-dark);
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-
-  h1, h2, h3 {
-    /* headings inherit font unless .font-display is applied */
-    @apply tracking-tight;
-  }
+  h1, h2, h3 { @apply tracking-tight; }
 }
 
 @layer components {
   /* ── Buttons ── */
   .btn-primary {
-    @apply inline-flex items-center justify-center px-6 py-3 bg-green-800 text-white font-semibold rounded-md transition-all hover:bg-green-900 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-wide;
+    @apply inline-flex items-center justify-center px-6 py-3 font-semibold rounded-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-wide;
+    background: var(--forest);
+    color: #fff;
   }
+  .btn-primary:hover { background: var(--forest-mid); }
+
   .btn-secondary {
-    @apply inline-flex items-center justify-center px-6 py-3 bg-white text-green-800 font-semibold rounded-md border border-green-800 transition-all hover:bg-green-50 active:scale-[0.98] disabled:opacity-50 text-sm tracking-wide;
+    @apply inline-flex items-center justify-center px-6 py-3 font-semibold rounded-lg border transition-all active:scale-[0.98] disabled:opacity-50 text-sm tracking-wide;
+    color: var(--forest);
+    border-color: var(--forest);
+    background: transparent;
   }
-  .btn-outline {
-    @apply inline-flex items-center justify-center px-6 py-3 text-gray-700 font-semibold rounded-md border border-gray-300 transition-all hover:bg-white active:scale-[0.98] disabled:opacity-50 text-sm;
-  }
+  .btn-secondary:hover { background: var(--forest-light); }
+
   .btn-amber {
-    @apply inline-flex items-center justify-center px-6 py-3 bg-amber-200 text-amber-800 font-bold rounded-md transition-all hover:bg-amber-100 active:scale-[0.98] text-sm tracking-wide;
+    @apply inline-flex items-center justify-center px-6 py-3 font-bold rounded-lg transition-all active:scale-[0.98] text-sm tracking-wide;
+    background: var(--amber);
+    color: #fff;
   }
+  .btn-amber:hover { background: var(--amber-dark); }
 
   /* ── Inputs ── */
   .input-base {
-    @apply w-full px-4 py-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-sm;
+    @apply w-full px-4 py-3 rounded-lg border bg-white disabled:bg-gray-100 disabled:cursor-not-allowed text-sm;
+    border-color: var(--cream-dark);
+    color: var(--text-dark);
+  }
+  .input-base:focus {
+    outline: none;
+    border-color: var(--forest);
+    box-shadow: 0 0 0 3px rgba(27,77,46,0.12);
   }
 
   /* ── Cards ── */
   .card {
-    @apply rounded-lg border border-gray-200 bg-white;
+    @apply rounded-xl border bg-white;
+    border-color: var(--cream-dark);
   }
 
   /* ── Layout ── */
-  .container-base {
-    @apply mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
-  }
+  .container-base { @apply mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl; }
 
   /* ── Display type ── */
   .font-display {
@@ -53,18 +81,21 @@
     font-optical-sizing: auto;
   }
 
-  /* ── Section eyebrow labels ── */
+  /* ── Eyebrow labels ── */
   .eyebrow {
-    @apply text-xs font-bold tracking-[0.15em] uppercase text-green-600;
+    @apply text-xs font-bold tracking-[0.15em] uppercase;
+    color: var(--amber);
   }
+
+  /* ── Section divider ── */
+  .section-cream   { background: var(--cream); }
+  .section-white   { background: #fff; }
+  .section-forest  { background: var(--forest); }
+  .section-fl      { background: var(--forest-light); }
 }
 
 /* ── Utilities ── */
-.truncate-lines {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+.truncate-lines { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .truncate-1 { -webkit-line-clamp: 1; }
 .truncate-2 { -webkit-line-clamp: 2; }
 .truncate-3 { -webkit-line-clamp: 3; }

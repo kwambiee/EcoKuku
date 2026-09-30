@@ -1,8 +1,8 @@
 {
-  "name": "ecokuku",
+  "name": "kwamboka-poultry",
   "version": "0.1.0",
   "private": true,
-  "description": "EcoKuku - Poultry Farm Management Platform",
+  "description": "Kwamboka Poultry Farm Management Platform",
   "scripts": {
     "dev": "turbo run dev --parallel",
     "build": "turbo run build",
@@ -32,5 +32,5 @@
     "ecommerce",
     "dashboard"
   ],
-  "author": "EcoKuku Team"
+  "author": "Kwamboka Poultry Team"
 }
