@@ -69,11 +69,11 @@ export default async function HomePage() {
             className="absolute inset-0 w-full h-full object-cover"
             style={{ objectPosition: '50% 28%' }}
           />
-          {/* Gradient — heavier at the bottom for text legibility */}
+          {/* Gradient — angled heavy scrim so amber text is always readable */}
           <div
             className="absolute inset-0"
             style={{
-              background: 'linear-gradient(to bottom, rgba(27,77,46,0.30) 0%, rgba(27,77,46,0.55) 40%, rgba(20,42,26,0.93) 80%, rgba(19,42,26,1) 100%)',
+              background: 'linear-gradient(160deg, rgba(10,24,15,0.82) 0%, rgba(15,36,22,0.68) 35%, rgba(12,28,18,0.90) 70%, rgba(10,22,14,1) 100%)',
             }}
           />
 
@@ -81,24 +81,24 @@ export default async function HomePage() {
           <div className="relative z-10 container-base pb-14 pt-20">
             <div className="max-w-2xl">
               {/* Eyebrow */}
-              <p className="text-xs font-bold tracking-[0.2em] uppercase mb-3" style={{ color: 'var(--amber)' }}>
+              <p className="text-xs font-bold tracking-[0.2em] uppercase mb-3 text-white/60">
                 Kwamboka Poultry Farm · Makina, Kibera
               </p>
 
               {/* Main headline */}
               <h1
                 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-[1.05] mb-5"
-                style={{ textWrap: 'balance' }}
+                style={{ textWrap: 'balance', textShadow: '0 2px 12px rgba(0,0,0,0.4)' }}
               >
                 Healthy Chicks for a<br />
-                <span style={{ color: 'var(--amber)' }}>Brighter Tomorrow</span>
+                <span style={{ color: '#FFCC44', textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>Brighter Tomorrow</span>
               </h1>
 
               <p className="text-white/80 text-lg leading-relaxed mb-2 max-w-xl">
                 Strong, vaccinated chicks raised right here in Kibera. Choose your age group,
                 submit your details, and we call you back to confirm.
               </p>
-              <p className="font-display italic text-lg mb-8" style={{ color: 'var(--amber)' }}>
+              <p className="font-display italic text-lg mb-8" style={{ color: '#FFCC44', textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
                 By Kibera, for Kibera.
               </p>
 
