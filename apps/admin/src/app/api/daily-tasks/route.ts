@@ -3,28 +3,25 @@ import { getServerSession } from 'next-auth/next';
 import { db } from '@ecokuku/db';
 import { adminAuthOptions } from '@/lib/auth';
 
-// GET /api/daily-tasks?date=YYYY-MM-DD
-// Returns today's custom tasks + undone tasks from the past 7 days
+// GET /api/daily-tasks — returns all non-DONE tasks + DONE tasks from last 2 days
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(adminAuthOptions);
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
-    const today = searchParams.get('date') || new Date().toISOString().slice(0, 10);
-
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+    const date = searchParams.get('date') || new Date().toISOString().slice(0, 10);
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
 
     const tasks = await (db as any).dailyTask.findMany({
       where: {
         OR: [
-          { taskDate: today },
-          { taskDate: { gte: sevenDaysAgoStr, lt: today }, done: false },
+          { status: { in: ['OPEN', 'IN_PROGRESS'] } },
+          { status: 'DONE', taskDate: { gte: twoDaysAgo } },
+          { taskDate: date },
         ],
       },
-      orderBy: [{ taskDate: 'desc' }, { createdAt: 'asc' }],
+      orderBy: [{ createdAt: 'desc' }],
     });
 
     return NextResponse.json(tasks);
@@ -35,13 +32,13 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/daily-tasks
-// Create a new custom task for today (or specified date)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(adminAuthOptions);
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { label, detail, link, taskDate } = await request.json();
+    const body = await request.json();
+    const { label, detail, link, taskDate, priority, category, deadline, duration, assignedPhone } = body;
     if (!label?.trim()) return NextResponse.json({ error: 'Task label required' }, { status: 400 });
 
     const date = taskDate || new Date().toISOString().slice(0, 10);
@@ -53,6 +50,12 @@ export async function POST(request: NextRequest) {
         detail: detail?.trim() || null,
         link: link?.trim() || null,
         createdBy: session.user.name || null,
+        status: 'OPEN',
+        priority: priority || 'MEDIUM',
+        category: category || 'general',
+        deadline: deadline ? new Date(deadline) : null,
+        duration: duration?.trim() || null,
+        assignedPhone: assignedPhone?.trim() || null,
       },
     });
 

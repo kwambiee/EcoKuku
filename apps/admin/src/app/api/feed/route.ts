@@ -166,15 +166,17 @@ export async function POST(request: NextRequest) {
 
     if (action === 'purchase') {
       const {
-        feedTypeId, date, quantity, supplierName, supplierContact,
+        feedTypeId, date, numberOfBags, bagSizeKg, supplierName, supplierContact,
         purchasePrice, transportCost, receiptRef, notes,
       } = body;
 
-      if (!feedTypeId || !quantity || !supplierName || !purchasePrice) {
-        return NextResponse.json({ error: 'feedTypeId, quantity, supplierName, and purchasePrice are required' }, { status: 400 });
+      if (!feedTypeId || !numberOfBags || !bagSizeKg || !supplierName || !purchasePrice) {
+        return NextResponse.json({ error: 'feedTypeId, numberOfBags, bagSizeKg, supplierName, and purchasePrice are required' }, { status: 400 });
       }
 
-      const qty = parseFloat(quantity);
+      const bags = parseInt(numberOfBags);
+      const bagKg = parseFloat(bagSizeKg);
+      const qty = bags * bagKg;
       const price = parseFloat(purchasePrice);
       const transport = parseFloat(transportCost || '0');
       const total = price + transport;
@@ -188,6 +190,8 @@ export async function POST(request: NextRequest) {
           date: date ? new Date(date) : new Date(),
           quantity: qty,
           unit: 'kg',
+          numberOfBags: bags,
+          bagSizeKg: bagKg,
           supplierName,
           supplierContact: supplierContact || null,
           purchasePrice: price,
@@ -212,7 +216,7 @@ export async function POST(request: NextRequest) {
 
       await db.feedType.update({ where: { id: feedTypeId }, data: { supplier: supplierName } });
 
-      const description = `Feed purchase: ${qty}kg ${feedType.name} from ${supplierName}`;
+      const description = `Feed purchase: ${bags} bags × ${bagKg}kg = ${qty}kg ${feedType.name} from ${supplierName}`;
       await db.expense.create({
         data: {
           category: 'FEED',

@@ -437,6 +437,8 @@ model FeedPurchase {
   date            DateTime @default(now())
   quantity        Decimal  @db.Decimal(10, 2)
   unit            String   @default("kg")
+  numberOfBags    Int?
+  bagSizeKg       Decimal? @db.Decimal(10, 2)
   supplierName    String
   supplierContact String?
   purchasePrice   Decimal  @db.Decimal(10, 2)
@@ -762,19 +764,27 @@ model GoalReview {
 // ============= DAILY TASKS =============
 
 model DailyTask {
-  id        String    @id @default(cuid())
-  taskDate  String    // YYYY-MM-DD format
-  label     String
-  detail    String?
-  done      Boolean   @default(false)
-  doneAt    DateTime?
-  link      String?
-  createdBy String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  taskDate      String    // YYYY-MM-DD format
+  label         String
+  detail        String?
+  done          Boolean   @default(false)
+  doneAt        DateTime?
+  link          String?
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // Kanban fields
+  status        String    @default("OPEN")   // OPEN | IN_PROGRESS | DONE
+  priority      String    @default("MEDIUM") // HIGH | MEDIUM | LOW
+  category      String?   // feed | eggs | vaccination | products | general
+  deadline      DateTime?
+  duration      String?
+  assignedPhone String?
 
   @@index([taskDate])
   @@index([done])
+  @@index([status])
 }
 
 // ============= STAFF ACCESS REQUESTS =============

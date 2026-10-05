@@ -217,92 +217,73 @@ export async function GET(_request: NextRequest) {
       return { name: ft.name, totalStock: stock, daysRemaining, isLow: daysRemaining !== null && daysRemaining < 7 };
     });
 
-    // ── Alerts ─────────────────────────────────────────────────────────────────
+    // ── Vaccination schedule (informational — separate from alerts) ────────────
+    const vaccinationSchedule = activeBatches.map((batch) => {
+      const ageInDays = Math.floor((Date.now() - new Date(batch.startDate).getTime()) / 86400000);
+      const batchVacs = vaccinations.filter((v) => v.batchId === batch.id);
+      const items = VACCINE_SCHEDULE.map((sched) => {
+        const isLogged = batchVacs.some((v) => isVaccineLogged(sched.vaccine, v.vaccineType));
+        const daysUntilDue = sched.daysOld - ageInDays;
+        let status: 'done' | 'overdue' | 'due_now' | 'due_soon' | 'upcoming';
+        if (isLogged) status = 'done';
+        else if (daysUntilDue < 0 && ageInDays > sched.windowEnd) status = 'overdue';
+        else if (daysUntilDue === 0) status = 'due_now';
+        else if (daysUntilDue > 0 && daysUntilDue <= 5) status = 'due_soon';
+        else status = 'upcoming';
+        return { vaccine: sched.vaccine, daysOld: sched.daysOld, windowEnd: sched.windowEnd, daysUntilDue, status };
+      }).filter((item) => item.status !== 'done' && item.status !== 'upcoming' || item.daysUntilDue <= 14);
+      return { batchId: batch.id, batchNumber: batch.batchNumber, batchType: batch.type, ageInDays, items };
+    }).filter((b) => b.items.length > 0);
+
+    // ── Alerts — expenditure-focused only ──────────────────────────────────────
     const alerts: { type: 'red' | 'amber' | 'blue'; title: string; detail: string; link?: string }[] = [];
 
-    // Vaccination alerts: warn 3 days before, flag overdue
+    // Feed purchase alerts
+    for (const feed of feedInventory) {
+      if (feed.daysRemaining === null) continue;
+      if (feed.daysRemaining <= 2) {
+        alerts.push({
+          type: 'red',
+          title: `Buy ${feed.name} immediately — ${feed.daysRemaining <= 1 ? 'less than 1 day' : '~2 days'} left`,
+          detail: `${Math.round(feed.totalStock)} kg remaining · order before stock runs out`,
+          link: '/feed',
+        });
+      } else if (feed.daysRemaining <= 7) {
+        alerts.push({
+          type: 'amber',
+          title: `Reorder ${feed.name} soon — ~${feed.daysRemaining} days left`,
+          detail: `${Math.round(feed.totalStock)} kg in stock · plan your next purchase`,
+          link: '/feed',
+        });
+      }
+    }
+
+    // Vaccine purchase alerts — warn 5+ days before so there is time to source
     for (const batch of activeBatches) {
       const ageInDays = Math.floor((Date.now() - new Date(batch.startDate).getTime()) / 86400000);
-      const batchVaccinations = vaccinations.filter((v) => v.batchId === batch.id);
-
+      const batchVacs = vaccinations.filter((v) => v.batchId === batch.id);
       for (const sched of VACCINE_SCHEDULE) {
-        const isLogged = batchVaccinations.some((v) => isVaccineLogged(sched.vaccine, v.vaccineType));
+        const isLogged = batchVacs.some((v) => isVaccineLogged(sched.vaccine, v.vaccineType));
         if (isLogged) continue;
-
         const daysUntilDue = sched.daysOld - ageInDays;
-        if (daysUntilDue < 0 && ageInDays <= sched.windowEnd) {
-          // Within the grace window — amber "getting late"
+        if (daysUntilDue >= 3 && daysUntilDue <= 6) {
           alerts.push({
             type: 'amber',
-            title: `${sched.vaccine} — administer now`,
-            detail: `${batch.batchNumber} (${batch.type}) · due day ${sched.daysOld} · day ${ageInDays} today`,
-            link: '/health',
-          });
-        } else if (daysUntilDue < 0 && ageInDays > sched.windowEnd) {
-          // Past the window — overdue
-          alerts.push({
-            type: 'red',
-            title: `${sched.vaccine} vaccination overdue`,
-            detail: `${batch.batchNumber} (${batch.type}) · due day ${sched.daysOld} · ${Math.abs(daysUntilDue)} days late`,
-            link: '/health',
-          });
-        } else if (daysUntilDue === 0) {
-          alerts.push({
-            type: 'amber',
-            title: `${sched.vaccine} due today`,
-            detail: `${batch.batchNumber} (${batch.type}) · day ${sched.daysOld}`,
-            link: '/health',
-          });
-        } else if (daysUntilDue <= 3) {
-          // 3-day advance warning
-          alerts.push({
-            type: 'amber',
-            title: `${sched.vaccine} due in ${daysUntilDue} day${daysUntilDue > 1 ? 's' : ''}`,
-            detail: `${batch.batchNumber} (${batch.type}) · on day ${sched.daysOld}`,
+            title: `Purchase ${sched.vaccine} vaccine — needed in ${daysUntilDue} days`,
+            detail: `${batch.batchNumber} (${batch.type}) · administer on day ${sched.daysOld}`,
             link: '/health',
           });
         }
       }
     }
 
-    // Feed alerts: only fire when ≤ 2 days of stock remain (critical)
-    for (const feed of feedInventory) {
-      if (feed.daysRemaining === null) continue;
-      if (feed.daysRemaining <= 2) {
-        alerts.push({
-          type: 'red',
-          title: `Feed critically low — ${feed.daysRemaining <= 1 ? 'less than 1 day' : '~2 days'} remaining`,
-          detail: `${feed.name} · ${Math.round(feed.totalStock)} kg left — reorder immediately`,
-          link: '/feed',
-        });
-      } else if (feed.daysRemaining <= 5) {
-        alerts.push({
-          type: 'amber',
-          title: `${feed.name} running low`,
-          detail: `~${feed.daysRemaining} days of stock remaining — plan to reorder`,
-          link: '/feed',
-        });
-      }
-    }
-
-    // Unassigned deliveries
-    if (unassignedDeliveries > 0) {
+    // Low product stock alerts (items that need restocking / expenditure)
+    for (const product of lowStockProducts) {
       alerts.push({
         type: 'amber',
-        title: `${unassignedDeliveries} order${unassignedDeliveries > 1 ? 's' : ''} not yet assigned a driver`,
-        detail: 'Deliveries pending assignment',
-        link: '/logistics',
-      });
-    }
-
-    // Incubation hatching
-    for (const inc of incubationBatches) {
-      const daysLeft = Math.ceil((new Date(inc.expectedHatchDate).getTime() - Date.now()) / 86400000);
-      alerts.push({
-        type: 'blue',
-        title: `Incubation ${inc.batchNumber} ${daysLeft <= 0 ? 'hatching today' : `hatching in ${daysLeft} day${daysLeft > 1 ? 's' : ''}`}`,
-        detail: `Expected ${inc.eggCount} chicks · record results`,
-        link: '/incubation',
+        title: `Restock ${product.name}`,
+        detail: `Only ${product.stock} units left · consider purchasing more`,
+        link: '/products',
       });
     }
 
@@ -530,10 +511,40 @@ export async function GET(_request: NextRequest) {
     const outstandingTotal = outstandingPayments.reduce((s, o) => s + Number(o.total), 0);
 
     // ── Cost of production ───────────────────────────────────────────────────────
-    const eggsThisMonthAgg = await db.eggProduction.aggregate({ where: { date: { gte: monthStart } }, _sum: { collected: true } });
+    const [eggsThisMonthAgg, feedLogsThisMonth, recentFeedPurchases] = await Promise.all([
+      db.eggProduction.aggregate({ where: { date: { gte: monthStart } }, _sum: { collected: true } }),
+      db.feedLog.findMany({ where: { recordedDate: { gte: monthStart } }, select: { feedType: true, quantityUsed: true } }),
+      db.feedPurchase.findMany({ orderBy: { date: 'desc' }, take: 30, select: { feedType: { select: { name: true } }, quantity: true, purchasePrice: true } }),
+    ]);
     const eggsThisMonthNum = eggsThisMonthAgg._sum.collected || 0;
+
+    // Weighted average cost per kg by feed name from recent purchases
+    const feedCostMap: Record<string, { totalCost: number; totalQty: number }> = {};
+    for (const p of recentFeedPurchases) {
+      const name = p.feedType?.name || '';
+      if (!name) continue;
+      if (!feedCostMap[name]) feedCostMap[name] = { totalCost: 0, totalQty: 0 };
+      feedCostMap[name].totalCost += Number(p.purchasePrice);
+      feedCostMap[name].totalQty += Number(p.quantity);
+    }
+    const avgCostPerKg: Record<string, number> = {};
+    for (const [name, { totalCost, totalQty }] of Object.entries(feedCostMap)) {
+      avgCostPerKg[name] = totalQty > 0 ? totalCost / totalQty : 0;
+    }
+
+    // Feed cost this month from feed logs × avg cost per kg
+    let feedCostThisMonth = 0;
+    for (const log of feedLogsThisMonth) {
+      const rate = avgCostPerKg[log.feedType] || 0;
+      feedCostThisMonth += Number(log.quantityUsed) * rate;
+    }
+    feedCostThisMonth = Math.round(feedCostThisMonth);
+
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const costPerEgg = eggsThisMonthNum > 0 && expThisMonth > 0 ? Math.round((expThisMonth / eggsThisMonthNum) * 100) / 100 : null;
     const costPerBirdMonth = totalBirds > 0 && expThisMonth > 0 ? Math.round((expThisMonth / totalBirds) * 100) / 100 : null;
+    const feedCostPerBird = totalBirds > 0 && feedCostThisMonth > 0 ? Math.round((feedCostThisMonth / totalBirds) * 100) / 100 : null;
+    const feedCostPerBirdDay = totalBirds > 0 && feedCostThisMonth > 0 ? Math.round((feedCostThisMonth / daysInMonth / totalBirds) * 100) / 100 : null;
     const batchCostBreakdown = activeBatches
       .filter((b: any) => b.acquisitionCost)
       .map((b: any) => ({
@@ -599,7 +610,8 @@ export async function GET(_request: NextRequest) {
       preOrders: preOrderSummary,
       lowStockProducts,
       weeklyGoals: await getWeeklyGoals(weekStart, now),
-      costOfProduction: { costPerEgg, costPerBirdMonth, eggsThisMonth: eggsThisMonthNum, expensesThisMonth: expThisMonth, totalActiveBirds: totalBirds, batchCostBreakdown },
+      costOfProduction: { costPerEgg, costPerBirdMonth, feedCostPerBird, feedCostPerBirdDay, feedCostThisMonth, eggsThisMonth: eggsThisMonthNum, expensesThisMonth: expThisMonth, totalActiveBirds: totalBirds, batchCostBreakdown, daysInMonth },
+      vaccinationSchedule,
     });
   } catch (error: any) {
     console.error('Dashboard API error:', error);

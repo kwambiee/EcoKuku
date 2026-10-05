@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
-import { Badge } from '@ecokuku/ui';
-import { Plus, Syringe, Calendar, CheckCircle, Clock, AlertTriangle, Info, X, Stethoscope, ShieldAlert, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Syringe, CheckCircle, Clock, AlertTriangle, Info, X, Stethoscope, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Batch {
@@ -109,17 +108,6 @@ const VACCINE_MATCH_KEYWORDS: Record<string, string[]> = {
   'Fowl Typhoid': ['TYPHOID', 'SALMONELLA', 'GALLINARUM'],
 };
 
-const VACCINE_TYPES = [
-  "Marek's Disease",
-  'Newcastle Disease + IB',
-  'Gumboro (IBD)',
-  'Newcastle Disease (plain)',
-  'Gumboro Booster',
-  'Fowl Pox',
-  'Fowl Typhoid',
-  'Avian Influenza (AI)',
-  'Other',
-];
 
 interface HealthEvent {
   id: string;
@@ -237,24 +225,10 @@ function getVaccineStatus(
 export default function HealthPage() {
   const [logs, setLogs] = useState<VaccinationLog[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const [tooltipBatch, setTooltipBatch] = useState<Batch | null>(null);
   const [tooltipCell, setTooltipCell] = useState<MatrixCell | null>(null);
-  const [formData, setFormData] = useState({
-    vaccineType: '',
-    dateAdministered: new Date().toISOString().split('T')[0],
-    batchId: '',
-    dosage: '',
-    administeredBy: '',
-    batchNo: '',
-    notes: '',
-    cost: '',
-  });
 
   // Disease & treatment state
   const [healthEvents, setHealthEvents] = useState<HealthEvent[]>([]);
@@ -264,13 +238,7 @@ export default function HealthPage() {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<HealthEvent | null>(null);
   const [showMatrix, setShowMatrix] = useState(true);
-  const [showSchedule, setShowSchedule] = useState(false);
-  const [showHistory, setShowHistory] = useState(true);
   const [showDiseaseLog, setShowDiseaseLog] = useState(true);
-  const [editingLog, setEditingLog] = useState<VaccinationLog | null>(null);
-  const [editForm, setEditForm] = useState({
-    vaccineType: '', dateAdministered: '', batchId: '', dosage: '', administeredBy: '', notes: '',
-  });
 
   const emptyDiseaseForm = {
     batchId: '', type: 'disease', date: new Date().toISOString().split('T')[0],
@@ -341,15 +309,12 @@ export default function HealthPage() {
   };
 
   const fetchLogs = async () => {
-    setIsLoading(true);
     try {
       const res = await fetch('/api/health-logs?limit=50');
       const data = await res.json();
       setLogs(data.data || []);
     } catch {
-      setError('Failed to load vaccination history');
-    } finally {
-      setIsLoading(false);
+      console.error('Failed to load vaccination data');
     }
   };
 
@@ -360,119 +325,6 @@ export default function HealthPage() {
       setBatches(data.data || []);
     } catch {
       console.error('Failed to load batches');
-    }
-  };
-
-  const openEditLog = (log: VaccinationLog) => {
-    setEditingLog(log);
-    setEditForm({
-      vaccineType: log.vaccineType,
-      dateAdministered: new Date(log.dateAdministered).toISOString().split('T')[0],
-      batchId: log.batch?.id || '',
-      dosage: log.dosage || '',
-      administeredBy: log.administeredBy || '',
-      notes: log.notes || '',
-    });
-  };
-
-  const handleEditSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingLog) return;
-    setIsSubmitting(true);
-    try {
-      const res = await fetch('/api/health-logs', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vaccinationId: editingLog.id,
-          vaccineType: editForm.vaccineType,
-          dateAdministered: editForm.dateAdministered,
-          batchId: editForm.batchId || null,
-          dosage: editForm.dosage || null,
-          administeredBy: editForm.administeredBy || null,
-          notes: editForm.notes || null,
-        }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
-      toast.success('Vaccination updated');
-      setEditingLog(null);
-      fetchLogs();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteLog = (log: VaccinationLog) => {
-    toast(`Delete ${log.vaccineType} record?`, {
-      description: `${log.batch?.batchNumber || 'All batches'} · ${new Date(log.dateAdministered).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}`,
-      action: {
-        label: 'Delete',
-        onClick: async () => {
-          try {
-            const res = await fetch('/api/health-logs', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ vaccinationId: log.id }),
-            });
-            if (!res.ok) throw new Error();
-            toast.success('Vaccination record deleted');
-            fetchLogs();
-          } catch {
-            toast.error('Failed to delete');
-          }
-        },
-      },
-      cancel: { label: 'Cancel', onClick: () => {} },
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError('');
-    setSuccess('');
-    try {
-      const payload: any = {
-        vaccineType: formData.vaccineType,
-        dateAdministered: formData.dateAdministered,
-        batchId: formData.batchId || null,
-        dosage: formData.dosage || null,
-        administeredBy: formData.administeredBy || null,
-        batchNo: formData.batchNo || null,
-        notes: formData.notes || null,
-      };
-      if (formData.cost) payload.cost = formData.cost;
-
-      const res = await fetch('/api/health-logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to log vaccination');
-      }
-
-      setSuccess('Vaccination logged successfully');
-      setFormData({
-        vaccineType: '',
-        dateAdministered: new Date().toISOString().split('T')[0],
-        batchId: '',
-        dosage: '',
-        administeredBy: '',
-        batchNo: '',
-        notes: '',
-        cost: '',
-      });
-      setShowForm(false);
-      fetchLogs();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log vaccination');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -551,21 +403,11 @@ export default function HealthPage() {
                 className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
                 <Stethoscope size={15} /> Log Disease / Treatment
               </button>
-              <button onClick={() => { setShowForm(true); setError(''); setSuccess(''); }}
-                className="flex items-center gap-2 px-4 py-2.5 bg-green-800 text-white rounded-lg text-sm font-medium hover:bg-green-700">
-                <Syringe size={15} /> Log Vaccination
-              </button>
             </div>
           </div>
         </div>
 
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-          {/* Alerts */}
-          {success && (
-            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
-              <CheckCircle size={18} /> {success}
-            </div>
-          )}
 
           {/* Vaccination Matrix */}
           {batches.length > 0 && (
@@ -671,108 +513,6 @@ export default function HealthPage() {
               )}
             </div>
           )}
-
-          {/* Standard Vaccine Schedule Reference */}
-          <div className="bg-white rounded-lg border border-gray-200">
-            <button onClick={() => setShowSchedule(!showSchedule)}
-              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-2">
-                <Calendar size={20} className="text-green-700" />
-                <h2 className="font-bold text-lg">Standard Vaccination Schedule</h2>
-              </div>
-              {showSchedule ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
-            </button>
-            {showSchedule && (
-            <div className="overflow-x-auto border-t border-gray-200">
-              <table className="w-full min-w-max">
-                <thead className="bg-gray-50 text-xs uppercase text-gray-600">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Vaccine</th>
-                    <th className="px-4 py-3 text-left">Age (Days)</th>
-                    <th className="px-4 py-3 text-left">Method</th>
-                    <th className="px-4 py-3 text-left">Notes</th>
-                    <th className="px-4 py-3 text-left">Supplement / Vitamin Guidance</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {VACCINE_SCHEDULE.map((v) => (
-                    <tr key={v.vaccine} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-sm text-gray-900">{v.vaccine}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">Day {v.daysOld}–{v.windowEnd}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{v.method}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500 italic">{v.notes}</td>
-                      <td className="px-4 py-3 text-sm text-amber-700 max-w-xs">{v.supplementNotes}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            )}
-          </div>
-
-          {/* Vaccination History */}
-          <div className="bg-white rounded-lg border border-gray-200">
-            <button onClick={() => setShowHistory(!showHistory)}
-              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-2">
-                <Syringe size={20} className="text-green-700" />
-                <h2 className="font-bold text-lg">Vaccination History</h2>
-                {logs.length > 0 && <span className="text-xs text-gray-400">{logs.length} records</span>}
-              </div>
-              {showHistory ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
-            </button>
-            {showHistory && (
-            <div className="overflow-x-auto border-t border-gray-200">
-              <table className="w-full min-w-max">
-                <thead className="bg-gray-50 text-xs uppercase text-gray-600">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-left">Vaccine</th>
-                    <th className="px-4 py-3 text-left">Batch</th>
-                    <th className="px-4 py-3 text-left">Dosage</th>
-                    <th className="px-4 py-3 text-left">Administered By</th>
-                    <th className="px-4 py-3 text-left">Notes</th>
-                    <th className="px-4 py-3 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {isLoading ? (
-                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">Loading...</td></tr>
-                  ) : logs.length === 0 ? (
-                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">No vaccination records yet. Log your first vaccination above.</td></tr>
-                  ) : (
-                    logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-50 group">
-                        <td className="px-4 py-3 text-sm">{new Date(log.dateAdministered).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                        <td className="px-4 py-3 font-medium text-sm text-gray-900">{log.vaccineType}</td>
-                        <td className="px-4 py-3 text-sm">
-                          {log.batch?.batchNumber ? (
-                            <Badge className="bg-green-100 text-green-800 text-xs">{log.batch.batchNumber}</Badge>
-                          ) : <span className="text-gray-400">All batches</span>}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{log.dosage || '—'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{log.administeredBy || '—'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{log.notes || '—'}</td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => openEditLog(log)} title="Edit"
-                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                              <Pencil size={13} />
-                            </button>
-                            <button onClick={() => handleDeleteLog(log)} title="Delete"
-                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            )}
-          </div>
 
           {/* ===== DISEASE & TREATMENT LOG ===== */}
 
@@ -1134,25 +874,32 @@ export default function HealthPage() {
               <div className="p-5 border-t flex gap-3">
                 {(tooltipCell.status === 'overdue' || tooltipCell.status === 'due' || tooltipCell.status === 'upcoming') && (
                   <button
-                    onClick={() => {
-                      const vaccineType = tooltipCell.vaccine.vaccine;
-                      const dosageHint = DOSAGE_GUIDE[vaccineType] || '';
-                      setFormData({
-                        vaccineType,
-                        dateAdministered: new Date().toISOString().split('T')[0],
-                        batchId: tooltipBatch.id,
-                        dosage: '',
-                        administeredBy: '',
-                        batchNo: '',
-                        notes: dosageHint ? `Recommended: ${tooltipCell.vaccine.method}` : '',
-                        cost: '',
-                      });
+                    onClick={async () => {
+                      try {
+                        const meta = JSON.stringify({ batchId: tooltipBatch.id, vaccineType: tooltipCell.vaccine.vaccine });
+                        const res = await fetch('/api/daily-tasks', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            label: `Vaccinate: ${tooltipCell.vaccine.vaccine} — ${tooltipBatch.batchNumber}`,
+                            detail: meta,
+                            category: 'vaccination',
+                            priority: tooltipCell.status === 'overdue' ? 'HIGH' : 'MEDIUM',
+                            taskDate: new Date().toISOString().slice(0, 10),
+                          }),
+                        });
+                        if (res.ok) {
+                          toast.success(`Task created — go to Dashboard to track it`);
+                        } else {
+                          toast.error('Failed to create task');
+                        }
+                      } catch {
+                        toast.error('Failed to create task');
+                      }
                       setActiveTooltip(null);
-                      setShowForm(true);
                     }}
                     className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700 flex items-center justify-center gap-2"
                   >
-                    <Syringe size={16} /> Log This Vaccination
+                    <Plus size={16} /> Create Kanban Task
                   </button>
                 )}
                 <button onClick={() => setActiveTooltip(null)}
@@ -1164,217 +911,6 @@ export default function HealthPage() {
           </div>
         )}
 
-        {/* Log Vaccination Modal */}
-        {showForm && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
-              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-xl font-bold">Log Vaccination</h2>
-                <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
-              </div>
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">{error}</div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Vaccine Type *</label>
-                    <select
-                      required
-                      value={formData.vaccineType}
-                      onChange={(e) => setFormData({ ...formData, vaccineType: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
-                    >
-                      <option value="">Select vaccine...</option>
-                      {VACCINE_TYPES.map((v) => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Date Administered *</label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.dateAdministered}
-                      onChange={(e) => setFormData({ ...formData, dateAdministered: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Batch <span className="font-normal text-gray-400">(optional -- leave blank for all batches)</span></label>
-                  <select
-                    value={formData.batchId}
-                    onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
-                  >
-                    <option value="">All active batches</option>
-                    {batches.map((b) => (
-                      <option key={b.id} value={b.id}>{b.batchNumber} -- {b.type} ({b.currentCount.toLocaleString()} birds)</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Dosage guidance panel */}
-                {formData.vaccineType && DOSAGE_GUIDE[formData.vaccineType] && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                    <p className="text-xs font-medium text-blue-800 mb-1">Recommended Dosage & Administration</p>
-                    <p className="text-xs text-blue-700 leading-relaxed">{DOSAGE_GUIDE[formData.vaccineType]}</p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Dosage</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 0.5ml per bird"
-                      value={formData.dosage}
-                      onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Administered By</label>
-                    <input
-                      type="text"
-                      placeholder="Staff / Vet name"
-                      value={formData.administeredBy}
-                      onChange={(e) => setFormData({ ...formData, administeredBy: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Vaccine Batch No.</label>
-                    <input
-                      type="text"
-                      placeholder="Manufacturer batch number"
-                      value={formData.batchNo}
-                      onChange={(e) => setFormData({ ...formData, batchNo: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Cost (KSh)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Vaccine cost"
-                      value={formData.cost}
-                      onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
-                    />
-                    <p className="text-xs text-gray-400 mt-0.5">Auto-creates expense record</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Notes</label>
-                  <input
-                    type="text"
-                    placeholder="Any observations..."
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
-                  >
-                    {isSubmitting ? 'Saving...' : 'Log Vaccination'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* EDIT VACCINATION MODAL */}
-        {editingLog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-              <div className="p-5 border-b flex justify-between items-center">
-                <h2 className="font-bold text-xl">Edit Vaccination Record</h2>
-                <button onClick={() => setEditingLog(null)} className="text-gray-400 hover:text-gray-600">
-                  <X size={20} />
-                </button>
-              </div>
-              <form onSubmit={handleEditSave} className="p-5 space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Vaccine *</label>
-                  <input type="text" required value={editForm.vaccineType}
-                    onChange={(e) => setEditForm({ ...editForm, vaccineType: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
-                    <input type="date" required value={editForm.dateAdministered}
-                      onChange={(e) => setEditForm({ ...editForm, dateAdministered: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Batch</label>
-                    <select value={editForm.batchId}
-                      onChange={(e) => setEditForm({ ...editForm, batchId: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                      <option value="">All batches</option>
-                      {batches.map((b) => <option key={b.id} value={b.id}>{b.batchNumber}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Dosage</label>
-                    <input type="text" value={editForm.dosage}
-                      onChange={(e) => setEditForm({ ...editForm, dosage: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                      placeholder="e.g. 1 drop per bird" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Administered By</label>
-                    <input type="text" value={editForm.administeredBy}
-                      onChange={(e) => setEditForm({ ...editForm, administeredBy: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                      placeholder="Name or role" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Notes</label>
-                  <textarea rows={2} value={editForm.notes}
-                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
-                    placeholder="Any observations..." />
-                </div>
-                <div className="flex gap-3">
-                  <button type="submit" disabled={isSubmitting}
-                    className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50">
-                    {isSubmitting ? 'Saving...' : 'Save Changes'}
-                  </button>
-                  <button type="button" onClick={() => setEditingLog(null)}
-                    className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

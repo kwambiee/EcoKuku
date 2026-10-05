@@ -5,7 +5,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { toast } from 'sonner';
 import {
   Plus, AlertTriangle, Package, Trash2, ShoppingCart,
-  BookOpen, ChevronDown, ChevronUp, Info, Wheat, Pencil, X, ChevronLeft, ChevronRight,
+  BookOpen, Info, Wheat, ChevronUp, ChevronDown,
 } from 'lucide-react';
 
 interface FeedInventory {
@@ -14,14 +14,9 @@ interface FeedInventory {
   daysRemaining: number | null; isCritical: boolean; isLow: boolean;
 }
 
-interface FeedLog {
-  id: string; feedType: string; recordedDate: string;
-  quantityUsed: number; quantityRemaining?: number; notes?: string;
-  batch?: { id: string; batchNumber: string } | null;
-}
-
 interface FeedPurchaseRecord {
   id: string; date: string; quantity: number; unit: string;
+  numberOfBags?: number; bagSizeKg?: number;
   supplierName: string; supplierContact?: string;
   purchasePrice: number; transportCost: number; totalCost: number;
   receiptRef?: string; notes?: string;
@@ -33,11 +28,7 @@ interface FeedStats {
   costPerBirdDay: number | null; totalDailyUsage: number;
 }
 
-type Action = 'idle' | 'purchase' | 'consume' | 'add_type' | 'edit_log';
-
-function fmtKg(n: number) {
-  return n % 1 === 0 ? `${n}` : n.toFixed(2).replace(/\.?0+$/, '');
-}
+type Action = 'idle' | 'purchase' | 'add_type';
 
 // Per-week feeding data from the vet-recommended guide photo
 // gPerBird = grams per bird per day
@@ -67,88 +58,36 @@ const FEEDING_GUIDE: { week: number; ageRange: string; phase: string; phaseColor
   { week: 20, ageRange: '134+ days',    phase: 'Layers Mash',     phaseColor: 'blue',   gPerBird: 113 },
 ];
 
-function getGuideForAge(days: number) {
-  const week = Math.ceil(days / 7);
-  return FEEDING_GUIDE.find((r) => r.week === Math.min(Math.max(week, 1), 20)) ?? FEEDING_GUIDE[FEEDING_GUIDE.length - 1];
-}
-
 export default function FeedPage() {
   const [inventory, setInventory] = useState<FeedInventory[]>([]);
-  const [logs, setLogs] = useState<FeedLog[]>([]);
   const [purchases, setPurchases] = useState<FeedPurchaseRecord[]>([]);
   const [stats, setStats] = useState<FeedStats | null>(null);
-  const [batches, setBatches] = useState<{ id: string; batchNumber: string; startDate: string; ageAtArrival?: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLogsLoading, setIsLogsLoading] = useState(false);
   const [action, setAction] = useState<Action>('idle');
   const [isSaving, setIsSaving] = useState(false);
   const [showFeedingGuide, setShowFeedingGuide] = useState(false);
-  const [logMonth, setLogMonth] = useState(() => new Date().getMonth() + 1); // 1-12
-  const [logYear, setLogYear] = useState(() => new Date().getFullYear());
-  const [editingLog, setEditingLog] = useState<FeedLog | null>(null);
-  const [editLogForm, setEditLogForm] = useState({
-    feedTypeName: '', quantityUsed: '', batchId: '', notes: '', date: '',
-  });
 
   const [purchaseForm, setPurchaseForm] = useState({
-    feedTypeId: '', date: new Date().toISOString().split('T')[0], quantity: '',
+    feedTypeId: '', date: new Date().toISOString().split('T')[0],
+    numberOfBags: '', bagSizeKg: '70',
     supplierName: '', supplierContact: '', purchasePrice: '', transportCost: '',
     receiptRef: '', notes: '',
   });
-  // Default to Monday of the current week for the weekly log
-  const [consumeForm, setConsumeForm] = useState(() => {
-    const d = new Date();
-    const day = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day; // shift to Monday
-    d.setDate(d.getDate() + diff);
-    return { feedTypeName: '', quantityUsed: '', batchId: '', notes: '', date: d.toISOString().split('T')[0] };
-  });
   const [addTypeForm, setAddTypeForm] = useState({ name: '', supplier: '', cost: '' });
 
-  const fetchAll = async (opts?: { month?: number; year?: number }) => {
+  const fetchAll = async () => {
     setIsLoading(true);
-    const m = opts?.month ?? logMonth;
-    const y = opts?.year ?? logYear;
     try {
-      const [feedRes, batchRes] = await Promise.all([
-        fetch(`/api/feed?logMonth=${m}&logYear=${y}`),
-        fetch('/api/batches?status=ACTIVE&limit=50'),
-      ]);
-      const feedData = await feedRes.json();
-      const batchData = await batchRes.json();
+      const res = await fetch('/api/feed');
+      const feedData = await res.json();
       setInventory(feedData.inventory || []);
-      setLogs(feedData.recentLogs || []);
       setPurchases(feedData.recentPurchases || []);
       setStats(feedData.stats || null);
-      setBatches(batchData.data || []);
     } catch { toast.error('Failed to load feed data'); }
     finally { setIsLoading(false); }
   };
 
   useEffect(() => { fetchAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Lightweight fetch — only refreshes the log table, no full-page reload
-  const fetchLogs = async (month: number, year: number) => {
-    setIsLogsLoading(true);
-    try {
-      const res = await fetch(`/api/feed?logMonth=${month}&logYear=${year}`);
-      const data = await res.json();
-      setLogs(data.recentLogs || []);
-    } catch { toast.error('Failed to load logs'); }
-    finally { setIsLogsLoading(false); }
-  };
-
-  const stepLogMonth = (dir: 1 | -1) => {
-    let m = logMonth + dir;
-    let y = logYear;
-    if (m < 1) { m = 12; y -= 1; }
-    if (m > 12) { m = 1; y += 1; }
-    setLogMonth(m);
-    setLogYear(y);
-    fetchLogs(m, y); // only refreshes the log table — no page-wide reload
-  };
-
-  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   const handlePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,32 +98,17 @@ export default function FeedPage() {
         body: JSON.stringify({ action: 'purchase', ...purchaseForm }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to record purchase'); }
-      toast.success('Purchase recorded — stock updated and expense logged');
+      const bags = parseInt(purchaseForm.numberOfBags);
+      const bagKg = parseFloat(purchaseForm.bagSizeKg);
+      toast.success(`Recorded: ${bags} bags × ${bagKg}kg = ${bags * bagKg}kg — stock updated`);
       setPurchaseForm({
-        feedTypeId: '', date: new Date().toISOString().split('T')[0], quantity: '',
+        feedTypeId: '', date: new Date().toISOString().split('T')[0],
+        numberOfBags: '', bagSizeKg: '70',
         supplierName: '', supplierContact: '', purchasePrice: '', transportCost: '',
         receiptRef: '', notes: '',
       });
       setAction('idle');
       fetchAll();
-    } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed'); }
-    finally { setIsSaving(false); }
-  };
-
-  const handleConsume = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      const res = await fetch('/api/feed', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'log_consumption', ...consumeForm }),
-      });
-      if (!res.ok) throw new Error('Failed to log');
-      toast.success('Consumption logged and stock deducted');
-      const nd = new Date(); const nday = nd.getDay(); const ndiff = nday === 0 ? -6 : 1 - nday; nd.setDate(nd.getDate() + ndiff);
-      setConsumeForm({ feedTypeName: '', quantityUsed: '', batchId: '', notes: '', date: nd.toISOString().split('T')[0] });
-      setAction('idle');
-      fetchAll({ month: logMonth, year: logYear });
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed'); }
     finally { setIsSaving(false); }
   };
@@ -206,64 +130,6 @@ export default function FeedPage() {
     finally { setIsSaving(false); }
   };
 
-  const openEditLog = (log: FeedLog) => {
-    setEditingLog(log);
-    setEditLogForm({
-      feedTypeName: log.feedType,
-      quantityUsed: String(log.quantityUsed),
-      batchId: log.batch?.id || '',
-      notes: log.notes || '',
-      date: new Date(log.recordedDate).toISOString().split('T')[0],
-    });
-    setAction('edit_log');
-  };
-
-  const handleEditLog = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingLog) return;
-    setIsSaving(true);
-    try {
-      const res = await fetch('/api/feed', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logId: editingLog.id, ...editLogForm }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to update');
-      toast.success('Log updated');
-      setAction('idle');
-      setEditingLog(null);
-      fetchAll();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const deleteLog = (log: FeedLog) => {
-    toast(`Delete ${fmtKg(log.quantityUsed)} kg of ${log.feedType}?`, {
-      description: 'This will restore the consumed quantity back to stock.',
-      action: {
-        label: 'Delete',
-        onClick: async () => {
-          try {
-            const res = await fetch('/api/feed', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ logId: log.id }),
-            });
-            if (!res.ok) throw new Error();
-            toast.success('Entry deleted — stock restored');
-            fetchAll();
-          } catch {
-            toast.error('Failed to delete');
-          }
-        },
-      },
-      cancel: { label: 'Cancel', onClick: () => {} },
-    });
-  };
-
   const deleteFeedType = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"? All stock and log records will be removed.`)) return;
     await fetch('/api/feed', {
@@ -278,13 +144,15 @@ export default function FeedPage() {
   const warningItems = inventory.filter((f) => f.isLow && !f.isCritical);
   const worstItem = [...criticalItems, ...warningItems][0];
   const computedTotal = (parseFloat(purchaseForm.purchasePrice) || 0) + (parseFloat(purchaseForm.transportCost) || 0);
+  const totalKgThisPurchase = (parseInt(purchaseForm.numberOfBags) || 0) * (parseFloat(purchaseForm.bagSizeKg) || 0);
 
-  const selectedBatch = batches.find((b) => b.id === consumeForm.batchId);
-  const batchAgeDays = selectedBatch
-    ? Math.floor((Date.now() - new Date(selectedBatch.startDate).getTime()) / 86400000) + (selectedBatch.ageAtArrival || 0)
-    : null;
-  const batchAgeWeeks = batchAgeDays !== null ? Math.floor(batchAgeDays / 7) : null;
-  const batchGuide = batchAgeDays !== null ? getGuideForAge(batchAgeDays) : null;
+  // Per feed type: most recent bag size for "bags remaining" display
+  const lastBagSizeByFeedType: Record<string, number> = {};
+  purchases.forEach((p) => {
+    if (p.bagSizeKg && !lastBagSizeByFeedType[p.feedType.id]) {
+      lastBagSizeByFeedType[p.feedType.id] = p.bagSizeKg;
+    }
+  });
 
   const s = stats;
 
@@ -302,10 +170,6 @@ export default function FeedPage() {
             <p className="text-gray-500 text-sm mt-1">Stock levels, purchases, weekly consumption and feeding guide by age</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setAction('consume')}
-              className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
-              <Plus size={15} /> Log consumption
-            </button>
             <button onClick={async () => { await fetchAll(); setAction('purchase'); }}
               className="flex items-center gap-2 px-4 py-2.5 bg-green-800 text-white rounded-lg text-sm font-medium hover:bg-green-700">
               <ShoppingCart size={15} /> Record purchase
@@ -340,12 +204,18 @@ export default function FeedPage() {
 
           {/* Summary Cards — per feed type stock + cost cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {inventory.map((f) => (
+            {inventory.map((f) => {
+              const bagSize = lastBagSizeByFeedType[f.id];
+              const bagsApprox = bagSize ? Math.round(f.totalStock / bagSize) : null;
+              return (
               <div key={f.id} className="bg-white rounded-xl border p-4">
                 <p className="text-xs text-gray-500 font-medium">{f.name} stock</p>
                 <p className={`text-2xl font-bold mt-1 ${f.isCritical ? 'text-red-600' : f.isLow ? 'text-amber-600' : 'text-gray-900'}`}>
                   {f.totalStock.toFixed(0)} kg
                 </p>
+                {bagsApprox !== null && (
+                  <p className="text-xs text-gray-400 mt-0.5">≈ {bagsApprox} bag{bagsApprox !== 1 ? 's' : ''} of {bagSize}kg</p>
+                )}
                 <p className={`text-xs mt-0.5 ${f.isCritical ? 'text-red-500' : f.isLow ? 'text-amber-500' : 'text-green-600'}`}>
                   {f.daysRemaining !== null
                     ? f.isCritical
@@ -356,7 +226,8 @@ export default function FeedPage() {
                     : f.totalStock === 0 ? '✗ Out of stock' : '—'}
                 </p>
               </div>
-            ))}
+              );
+            })}
             {/* Feed cost this month */}
             {s && (
               <div className="bg-white rounded-xl border p-4">
@@ -381,58 +252,8 @@ export default function FeedPage() {
             )}
           </div>
 
-          {/* Two-column: Purchase Records + Feeding Guide */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-            {/* Purchase Records */}
-            <div className="lg:col-span-3 bg-white rounded-xl border">
-              <div className="p-5 border-b flex items-center justify-between">
-                <h2 className="font-bold text-lg">Purchase records</h2>
-                <button onClick={async () => { await fetchAll(); setAction('purchase'); }}
-                  className="text-sm text-green-700 font-medium hover:underline flex items-center gap-1">
-                  <Plus size={14} /> New purchase
-                </button>
-              </div>
-              {purchases.length === 0 ? (
-                <div className="p-8 text-center text-gray-400 text-sm">No purchases recorded yet</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-max">
-                    <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Date</th>
-                        <th className="px-4 py-3 text-left">Feed type</th>
-                        <th className="px-4 py-3 text-right">Bags</th>
-                        <th className="px-4 py-3 text-left">Supplier</th>
-                        <th className="px-4 py-3 text-right">Price/bag</th>
-                        <th className="px-4 py-3 text-right">Transport</th>
-                        <th className="px-4 py-3 text-right font-bold">Total cost</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {purchases.map((p) => (
-                        <tr key={p.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm">{new Date(p.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</td>
-                          <td className="px-4 py-3 text-sm font-medium">{p.feedType.name}</td>
-                          <td className="px-4 py-3 text-right text-sm">{Number(p.quantity).toFixed(0)}</td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className="text-gray-800">{p.supplierName}</span>
-                            {p.supplierContact && <span className="block text-[11px] text-gray-400">{p.supplierContact}</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm">KSh {Number(p.purchasePrice).toLocaleString()}</td>
-                          <td className="px-4 py-3 text-right text-sm text-gray-500">
-                            {Number(p.transportCost) > 0 ? `KSh ${Number(p.transportCost).toLocaleString()}` : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm font-bold">KSh {Number(p.totalCost).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Feeding Guide */}
-            <div className="lg:col-span-2 bg-white rounded-xl border overflow-hidden">
+          {/* Feeding Guide (full width) */}
+          <div className="bg-white rounded-xl border overflow-hidden">
               <div className="p-4 border-b flex items-center gap-2">
                 <BookOpen size={18} className="text-green-800" />
                 <h2 className="font-bold text-lg">Feeding guide by age</h2>
@@ -472,102 +293,6 @@ export default function FeedPage() {
               <div className="px-4 py-2.5 border-t bg-amber-50/50 text-[11px] text-amber-800">
                 ⚠ Feed amounts are guides only. Adjust for breed, climate and management.
               </div>
-            </div>
-          </div>
-
-          {/* Weekly Consumption Log */}
-          <div className="bg-white rounded-xl border">
-            <div className="p-5 border-b flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <h2 className="font-bold text-lg">Weekly consumption log</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Record total feed given per week — adjust if birds ate more or less than the guide</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {/* Month navigator */}
-                <div className="flex items-center gap-1 border rounded-lg px-1 py-0.5">
-                  <button onClick={() => stepLogMonth(-1)}
-                    className="p-1 text-gray-400 hover:text-gray-700 rounded transition-colors" title="Previous month">
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span className="text-sm font-semibold text-gray-800 min-w-[90px] text-center">
-                    {MONTH_NAMES[logMonth - 1]} {logYear}
-                  </span>
-                  <button onClick={() => stepLogMonth(1)}
-                    className="p-1 text-gray-400 hover:text-gray-700 rounded transition-colors" title="Next month">
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-                <button onClick={() => setAction('consume')}
-                  className="text-sm text-green-700 font-medium hover:underline flex items-center gap-1">
-                  <Plus size={14} /> Log this week
-                </button>
-              </div>
-            </div>
-            {isLogsLoading ? (
-              <div className="p-8 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
-                <svg className="animate-spin h-4 w-4 text-green-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                </svg>
-                Loading {MONTH_NAMES[logMonth - 1]} {logYear}…
-              </div>
-            ) : logs.length === 0 ? (
-              <div className="p-10 text-center text-gray-400 text-sm">
-                <p className="font-medium">No entries for {MONTH_NAMES[logMonth - 1]} {logYear}</p>
-                <p className="mt-1 text-xs">Use the arrows to navigate to another month, or log a new entry.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-max">
-                  <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Week of</th>
-                      <th className="px-4 py-3 text-left">Batch</th>
-                      <th className="px-4 py-3 text-left">Feed type</th>
-                      <th className="px-4 py-3 text-right">Given (kg)</th>
-                      <th className="px-4 py-3 text-left">Notes</th>
-                      <th className="px-4 py-3 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {logs.map((log) => {
-                      const isWarning = log.notes && /reduc|refus|low|poor|weak|monitor/i.test(log.notes);
-                      return (
-                        <tr key={log.id} className="hover:bg-gray-50 group">
-                          <td className="px-4 py-3 text-sm">
-                            Wk of {new Date(log.recordedDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-medium">{log.batch?.batchNumber || '—'}</td>
-                          <td className="px-4 py-3 text-sm">{log.feedType}</td>
-                          <td className="px-4 py-3 text-right text-sm font-semibold">{fmtKg(Number(log.quantityUsed))} kg</td>
-                          <td className="px-4 py-3 text-sm">
-                            {log.notes ? (
-                              <span className={isWarning ? 'text-amber-600 font-medium' : 'text-gray-500'}>
-                                {log.notes}
-                              </span>
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => openEditLog(log)} title="Edit"
-                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                                <Pencil size={13} />
-                              </button>
-                              <button onClick={() => deleteLog(log)} title="Delete"
-                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
 
           {/* Feed Stock Levels — detailed table */}
@@ -751,12 +476,29 @@ export default function FeedPage() {
                     {inventory.length === 0 && <p className="text-xs text-amber-600 mt-1">Add feed types first using &quot;Add feed type&quot;.</p>}
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Quantity (kg) *</label>
-                  <input type="number" step="0.1" required value={purchaseForm.quantity}
-                    onChange={(e) => setPurchaseForm({ ...purchaseForm, quantity: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="e.g. 200" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Number of bags *</label>
+                    <input type="number" step="1" min="1" required value={purchaseForm.numberOfBags}
+                      onChange={(e) => setPurchaseForm({ ...purchaseForm, numberOfBags: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="e.g. 3" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Bag size (kg) *</label>
+                    <select value={purchaseForm.bagSizeKg}
+                      onChange={(e) => setPurchaseForm({ ...purchaseForm, bagSizeKg: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      <option value="50">50 kg</option>
+                      <option value="70">70 kg</option>
+                      <option value="90">90 kg</option>
+                    </select>
+                  </div>
                 </div>
+                {purchaseForm.numberOfBags && purchaseForm.bagSizeKg && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 font-medium">
+                    Total: {parseInt(purchaseForm.numberOfBags)} bags × {parseFloat(purchaseForm.bagSizeKg)}kg = <strong>{totalKgThisPurchase} kg</strong> added to stock
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Supplier Name *</label>
@@ -817,150 +559,6 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* LOG WEEKLY CONSUMPTION MODAL */}
-        {action === 'consume' && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-              <div className="p-5 border-b flex justify-between">
-                <div>
-                  <h2 className="font-bold text-xl">Log Weekly Consumption</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">Enter the week&apos;s starting date (Monday) and total feed given</p>
-                </div>
-                <button onClick={() => setAction('idle')} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
-              </div>
-              <form onSubmit={handleConsume} className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Week starting (Mon) *</label>
-                    <input type="date" required value={consumeForm.date}
-                      onChange={(e) => setConsumeForm({ ...consumeForm, date: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Batch</label>
-                    <select value={consumeForm.batchId} onChange={(e) => setConsumeForm({ ...consumeForm, batchId: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                      <option value="">All batches / general</option>
-                      {batches.map((b) => <option key={b.id} value={b.id}>{b.batchNumber}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Feed Type *</label>
-                    <select required value={consumeForm.feedTypeName} onChange={(e) => setConsumeForm({ ...consumeForm, feedTypeName: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                      <option value="">Select...</option>
-                      {inventory.map((f) => <option key={f.id} value={f.name}>{f.name} ({f.totalStock.toFixed(0)} kg)</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Given (kg) *</label>
-                    <input type="number" step="0.1" required value={consumeForm.quantityUsed}
-                      onChange={(e) => setConsumeForm({ ...consumeForm, quantityUsed: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="e.g. 38" />
-                  </div>
-                </div>
-
-                {batchGuide && batchAgeDays !== null && batchAgeWeeks !== null && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
-                    <Info size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-blue-800">
-                      Batch is <strong>~{batchAgeWeeks} weeks</strong> old.
-                      Recommended: <strong>{batchGuide.gPerBird}g</strong>/bird/day of <strong>{batchGuide.phase}</strong>.
-                    </p>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Notes / adjustments</label>
-                  <input type="text" value={consumeForm.notes}
-                    onChange={(e) => setConsumeForm({ ...consumeForm, notes: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    placeholder="e.g. Increased by 5g from guide, reduced appetite Mon–Wed" />
-                </div>
-                <div className="flex gap-3">
-                  <button type="submit" disabled={isSaving}
-                    className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50">
-                    {isSaving ? 'Saving...' : 'Log Weekly Consumption'}
-                  </button>
-                  <button type="button" onClick={() => setAction('idle')}
-                    className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* EDIT LOG MODAL */}
-        {action === 'edit_log' && editingLog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-              <div className="p-5 border-b flex justify-between items-center">
-                <h2 className="font-bold text-xl">Edit Weekly Log</h2>
-                <button onClick={() => { setAction('idle'); setEditingLog(null); }}
-                  className="text-gray-400 hover:text-gray-600">
-                  <X size={20} />
-                </button>
-              </div>
-              <form onSubmit={handleEditLog} className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Week starting (Mon) *</label>
-                    <input type="date" required value={editLogForm.date}
-                      onChange={(e) => setEditLogForm({ ...editLogForm, date: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Batch</label>
-                    <select value={editLogForm.batchId}
-                      onChange={(e) => setEditLogForm({ ...editLogForm, batchId: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                      <option value="">All batches / general</option>
-                      {batches.map((b) => <option key={b.id} value={b.id}>{b.batchNumber}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Feed Type *</label>
-                    <select required value={editLogForm.feedTypeName}
-                      onChange={(e) => setEditLogForm({ ...editLogForm, feedTypeName: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                      <option value="">Select...</option>
-                      {inventory.map((f) => <option key={f.id} value={f.name}>{f.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Given (kg) *</label>
-                    <input type="number" step="0.1" required value={editLogForm.quantityUsed}
-                      onChange={(e) => setEditLogForm({ ...editLogForm, quantityUsed: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="e.g. 38" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Notes on appetite</label>
-                  <input type="text" value={editLogForm.notes}
-                    onChange={(e) => setEditLogForm({ ...editLogForm, notes: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    placeholder="e.g. Normal appetite, Slightly reduced — monitor" />
-                </div>
-                <div className="flex gap-3">
-                  <button type="submit" disabled={isSaving}
-                    className="flex-1 py-2.5 bg-green-800 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50">
-                    {isSaving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                  <button type="button" onClick={() => { setAction('idle'); setEditingLog(null); }}
-                    className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

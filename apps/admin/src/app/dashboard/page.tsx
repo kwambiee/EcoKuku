@@ -8,7 +8,7 @@ import Link from 'next/link';
 import {
   DollarSign, ShoppingCart, Egg, Bird, Wheat, CreditCard,
   Bell, CheckCircle, AlertTriangle, ArrowRight, TrendingUp, TrendingDown,
-  Package, BarChart3, Target, Calculator, Plus, Trash2, Syringe,
+  Package, Target, Calculator, Plus, Trash2, Syringe,
   X, Phone, Clock, ChevronDown, ChevronUp, MessageSquare,
 } from 'lucide-react';
 
@@ -148,6 +148,22 @@ export default function DashboardPage() {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
+    if (status === 'DONE' && task.category === 'vaccination') {
+      try {
+        const meta = JSON.parse(task.detail || '{}');
+        if (meta.batchId && meta.vaccineType) {
+          await fetch('/api/health-logs', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vaccineType: meta.vaccineType,
+              batchId: meta.batchId,
+              dateAdministered: new Date().toISOString().split('T')[0],
+              notes: 'Logged automatically via Kanban task',
+            }),
+          });
+        }
+      } catch { /* non-critical */ }
+    }
   }
 
   async function deleteTask(id: string) {
@@ -680,48 +696,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* ── BOTTOM ROW ── */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><BarChart3 size={14} className="text-gray-400" /> Revenue this month</h3>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(data.monthSummary.revenue)}</p>
-                {data.monthSummary.trend !== null && (
-                  <p className={`text-xs mt-1 flex items-center gap-1 ${data.monthSummary.trend >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    {data.monthSummary.trend >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                    {data.monthSummary.trend > 0 ? '+' : ''}{data.monthSummary.trend}% vs last month
-                  </p>
-                )}
-                <div className="mt-3 pt-3 border-t border-gray-100 space-y-1 text-xs">
-                  <p className="text-gray-500">Expenses: <span className="font-medium text-gray-700">{formatCurrency(data.monthSummary.expenses)}</span></p>
-                  <p className={data.monthSummary.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}>Net: <span className="font-bold">{formatCurrency(data.monthSummary.netProfit)}</span></p>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><Package size={14} className="text-gray-400" /> Inventory snapshot</h3>
-                {data.inventorySnapshot.length === 0 ? <p className="text-sm text-gray-400">No inventory data</p> : (
-                  <div className="space-y-2.5">
-                    {data.inventorySnapshot.map((item) => (
-                      <div key={item.name} className="flex items-center justify-between">
-                        <p className="text-sm text-gray-700">{item.name}</p>
-                        <p className={`text-sm font-semibold ${item.warning ? 'text-amber-600' : 'text-gray-900'}`}>
-                          {item.value} {item.warning && <AlertTriangle size={11} className="inline ml-0.5" />}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><ShoppingCart size={14} className="text-gray-400" /> Pre-orders pending</h3>
-                <p className="text-2xl font-bold text-gray-900">{data.preOrders.count}</p>
-                {data.preOrders.nextFulfilment && <p className="text-xs text-gray-500 mt-1">Next fulfilment: {data.preOrders.nextFulfilment}</p>}
-                {data.preOrders.items.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
-                    {data.preOrders.items.map((item, i) => <p key={i} className="text-xs text-gray-600">{item.description}</p>)}
-                  </div>
-                )}
-              </div>
-            </div>
 
           </div>
         ) : (
