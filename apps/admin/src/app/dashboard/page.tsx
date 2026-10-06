@@ -9,7 +9,7 @@ import {
   DollarSign, ShoppingCart, Egg, Bird, Wheat, CreditCard,
   Bell, CheckCircle, AlertTriangle, ArrowRight, TrendingUp, TrendingDown,
   Package, Target, Calculator, Plus, Trash2, Syringe,
-  X, Phone, Clock, ChevronDown, ChevronUp, MessageSquare,
+  X, Phone, Clock, MessageSquare,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -19,11 +19,6 @@ interface KanbanTask {
   done: boolean; status: string; priority: string; category?: string;
   deadline?: string; duration?: string; assignedPhone?: string;
   createdBy?: string; createdAt: string;
-}
-
-interface VaccineItem {
-  vaccine: string; daysOld: number; windowEnd: number;
-  daysUntilDue: number; status: 'done' | 'overdue' | 'due_now' | 'due_soon' | 'upcoming';
 }
 
 interface DashboardData {
@@ -53,7 +48,6 @@ interface DashboardData {
     expensesThisMonth: number; totalActiveBirds: number; daysInMonth: number;
     batchCostBreakdown: { batchNumber: string; costPerChick: number | null; totalAcquisitionCost: number; initialCount: number; currentCount: number }[];
   } | null;
-  vaccinationSchedule: { batchId: string; batchNumber: string; batchType: string; ageInDays: number; items: VaccineItem[] }[];
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -76,25 +70,12 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   general: <Clock size={13} className="text-gray-400 flex-shrink-0" />,
 };
 
-const VACC_STATUS_STYLES: Record<string, string> = {
-  overdue: 'bg-red-100 text-red-700',
-  due_now: 'bg-orange-100 text-orange-700',
-  due_soon: 'bg-amber-100 text-amber-700',
-  upcoming: 'bg-gray-100 text-gray-600',
-  done: 'bg-green-100 text-green-700',
-};
-
 const DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
 function alertKey(a: { type: string; title: string; detail: string }) { return `alert::${a.type}::${a.title}::${a.detail}`; }
 
-// ── WA helper ─────────────────────────────────────────────────────────────────
-
-function waLink(phone: string, text: string) {
-  const num = phone.replace(/\D/g, '').replace(/^0/, '254');
-  return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
+
+const TODAY = new Date().toISOString().slice(0, 10);
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -107,14 +88,14 @@ export default function DashboardPage() {
 
   // Kanban create form
   const [showCreate, setShowCreate] = useState(false);
-  const [newTask, setNewTask] = useState({ label: '', detail: '', priority: 'MEDIUM', category: 'general', deadline: '', duration: '', assignedPhone: '' });
+  const [newTask, setNewTask] = useState({ label: '', detail: '', priority: 'MEDIUM', category: 'general', deadline: '', duration: '', assignedPhone: '', taskDate: TODAY });
   const [creating, setCreating] = useState(false);
   const createRef = useRef<HTMLInputElement>(null);
 
-  // Vaccination section expand
-  const [vaccOpen, setVaccOpen] = useState(false);
+  // Task detail modal
+  const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = TODAY;
 
   useEffect(() => {
     try {
@@ -148,22 +129,6 @@ export default function DashboardPage() {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
-    if (status === 'DONE' && task.category === 'vaccination') {
-      try {
-        const meta = JSON.parse(task.detail || '{}');
-        if (meta.batchId && meta.vaccineType) {
-          await fetch('/api/health-logs', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              vaccineType: meta.vaccineType,
-              batchId: meta.batchId,
-              dateAdministered: new Date().toISOString().split('T')[0],
-              notes: 'Logged automatically via Kanban task',
-            }),
-          });
-        }
-      } catch { /* non-critical */ }
-    }
   }
 
   async function deleteTask(id: string) {
@@ -178,11 +143,11 @@ export default function DashboardPage() {
     try {
       const res = await fetch('/api/daily-tasks', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newTask, taskDate: today }),
+        body: JSON.stringify({ ...newTask }),
       });
       const t = await res.json();
       setTasks((prev) => [t, ...prev]);
-      setNewTask({ label: '', detail: '', priority: 'MEDIUM', category: 'general', deadline: '', duration: '', assignedPhone: '' });
+      setNewTask({ label: '', detail: '', priority: 'MEDIUM', category: 'general', deadline: '', duration: '', assignedPhone: '', taskDate: today });
       setShowCreate(false);
     } catch { } finally { setCreating(false); }
   }
@@ -391,65 +356,6 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* ── VACCINATION SCHEDULE (informational) ── */}
-            {data.vaccinationSchedule && data.vaccinationSchedule.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-200">
-                <button
-                  onClick={() => setVaccOpen((v) => !v)}
-                  className="w-full px-5 py-4 flex items-center justify-between border-b border-gray-100 text-left hover:bg-gray-50 transition"
-                >
-                  <div className="flex items-center gap-2">
-                    <Syringe size={16} className="text-purple-500" />
-                    <h2 className="font-bold text-gray-900">Vaccination schedule</h2>
-                    <span className="text-xs text-gray-400">— informational only</span>
-                    {data.vaccinationSchedule.some((b) => b.items.some((i) => i.status === 'overdue')) && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">overdue</span>
-                    )}
-                    {data.vaccinationSchedule.some((b) => b.items.some((i) => i.status === 'due_soon')) && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">due soon</span>
-                    )}
-                  </div>
-                  {vaccOpen ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
-                </button>
-
-                {vaccOpen && (
-                  <div className="divide-y divide-gray-100">
-                    {data.vaccinationSchedule.map((batch) => (
-                      <div key={batch.batchId} className="px-5 py-4">
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="text-xs font-bold text-gray-700">{batch.batchNumber}</span>
-                          <span className="text-xs text-gray-400">{batch.batchType} · Day {batch.ageInDays}</span>
-                        </div>
-                        <div className="space-y-2">
-                          {batch.items.map((item) => {
-                            const waText = `Reminder: Purchase ${item.vaccine} vaccine for ${batch.batchNumber} (${batch.batchType}). Due on day ${item.daysOld}${item.daysUntilDue > 0 ? ` — in ${item.daysUntilDue} days` : ' — now'}. Kwamboka Poultry Farm.`;
-                            return (
-                              <div key={item.vaccine} className="flex items-center gap-3">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${VACC_STATUS_STYLES[item.status]}`}>
-                                  {item.status === 'overdue' ? 'OVERDUE' : item.status === 'due_now' ? 'TODAY' : item.status === 'due_soon' ? `IN ${item.daysUntilDue}D` : item.status === 'done' ? 'DONE' : `DAY ${item.daysOld}`}
-                                </span>
-                                <span className="text-xs text-gray-700 flex-1">{item.vaccine}</span>
-                                <span className="text-[11px] text-gray-400">Administer day {item.daysOld}–{item.windowEnd}</span>
-                                <a
-                                  href={waLink('0182193380', waText)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title="Send buy reminder via WhatsApp"
-                                  className="flex items-center gap-1 text-[10px] text-green-600 hover:text-green-800 px-2 py-1 rounded bg-green-50 hover:bg-green-100 transition flex-shrink-0"
-                                >
-                                  <Phone size={10} /> Buy reminder
-                                </a>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* ── KANBAN BOARD ── */}
             <div id="kanban">
               <div className="flex items-center justify-between mb-3">
@@ -462,6 +368,21 @@ export default function DashboardPage() {
                 </button>
               </div>
 
+              {/* Task detail modal */}
+              {selectedTask && (
+                <TaskDetailModal
+                  task={selectedTask}
+                  onClose={() => setSelectedTask(null)}
+                  onMove={() => {
+                    const next = selectedTask.status === 'OPEN' ? 'IN_PROGRESS' : selectedTask.status === 'IN_PROGRESS' ? 'DONE' : 'OPEN';
+                    updateStatus(selectedTask, next as 'OPEN' | 'IN_PROGRESS' | 'DONE');
+                    setSelectedTask(null);
+                  }}
+                  moveLabel={selectedTask.status === 'OPEN' ? 'Pick up →' : selectedTask.status === 'IN_PROGRESS' ? 'Mark done ✓' : 'Reopen'}
+                  onDelete={() => { deleteTask(selectedTask.id); setSelectedTask(null); }}
+                />
+              )}
+
               {/* Create task form */}
               {showCreate && (
                 <form onSubmit={createTask} className="bg-white border border-gray-200 rounded-xl p-5 mb-4 space-y-3">
@@ -472,7 +393,7 @@ export default function DashboardPage() {
                   <textarea placeholder="Details / notes (optional)" rows={2}
                     value={newTask.detail} onChange={(e) => setNewTask((p) => ({ ...p, detail: e.target.value }))}
                     className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-green-400 resize-none text-gray-600" />
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Priority</label>
                       <select value={newTask.priority} onChange={(e) => setNewTask((p) => ({ ...p, priority: e.target.value }))}
@@ -494,20 +415,25 @@ export default function DashboardPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Deadline</label>
-                      <input type="date" value={newTask.deadline} onChange={(e) => setNewTask((p) => ({ ...p, deadline: e.target.value }))}
-                        className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none" />
-                    </div>
-                    <div>
                       <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Duration</label>
                       <input type="text" placeholder="e.g. 2 hours" value={newTask.duration} onChange={(e) => setNewTask((p) => ({ ...p, duration: e.target.value }))}
                         className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none" />
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Assign to (WhatsApp number — optional)</label>
-                    <input type="tel" placeholder="e.g. 0712 345 678" value={newTask.assignedPhone} onChange={(e) => setNewTask((p) => ({ ...p, assignedPhone: e.target.value }))}
-                      className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none" />
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Due date</label>
+                      <input type="date" value={newTask.deadline} onChange={(e) => setNewTask((p) => ({ ...p, deadline: e.target.value }))}
+                        className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Schedule for</label>
+                      <input type="date" value={newTask.taskDate} onChange={(e) => setNewTask((p) => ({ ...p, taskDate: e.target.value }))}
+                        className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Assign to (WhatsApp)</label>
+                      <input type="tel" placeholder="e.g. 0712 345 678" value={newTask.assignedPhone} onChange={(e) => setNewTask((p) => ({ ...p, assignedPhone: e.target.value }))}
+                        className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none" />
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button type="submit" disabled={creating || !newTask.label.trim()}
@@ -524,33 +450,21 @@ export default function DashboardPage() {
 
               {/* Kanban columns */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* OPEN */}
-                <KanbanColumn title="Open" count={openTasks.length} headerClass="bg-gray-50 border-gray-200"
-                  emptyText="No open tasks">
+                <KanbanColumn title="Open" count={openTasks.length} headerClass="bg-gray-50 border-gray-200" emptyText="No open tasks">
                   {openTasks.map((task) => (
-                    <TaskCard key={task.id} task={task}
-                      onMove={() => updateStatus(task, 'IN_PROGRESS')} moveLabel="Pick up →"
-                      onDelete={() => deleteTask(task.id)} />
+                    <TaskRow key={task.id} task={task} onClick={() => setSelectedTask(task)} />
                   ))}
                 </KanbanColumn>
 
-                {/* IN PROGRESS */}
-                <KanbanColumn title="In Progress" count={inProgressTasks.length} headerClass="bg-blue-50 border-blue-200"
-                  emptyText="Nothing in progress">
+                <KanbanColumn title="In Progress" count={inProgressTasks.length} headerClass="bg-blue-50 border-blue-200" emptyText="Nothing in progress">
                   {inProgressTasks.map((task) => (
-                    <TaskCard key={task.id} task={task}
-                      onMove={() => updateStatus(task, 'DONE')} moveLabel="Mark done ✓"
-                      onDelete={() => deleteTask(task.id)} moveClass="bg-green-700 text-white hover:bg-green-800" />
+                    <TaskRow key={task.id} task={task} onClick={() => setSelectedTask(task)} />
                   ))}
                 </KanbanColumn>
 
-                {/* DONE */}
-                <KanbanColumn title="Done" count={doneTasks.length} headerClass="bg-green-50 border-green-200"
-                  emptyText="Nothing done yet">
+                <KanbanColumn title="Done" count={doneTasks.length} headerClass="bg-green-50 border-green-200" emptyText="Nothing done yet">
                   {doneTasks.map((task) => (
-                    <TaskCard key={task.id} task={task}
-                      onMove={() => updateStatus(task, 'OPEN')} moveLabel="Reopen"
-                      onDelete={() => deleteTask(task.id)} dim />
+                    <TaskRow key={task.id} task={task} onClick={() => setSelectedTask(task)} dim />
                   ))}
                 </KanbanColumn>
               </div>
@@ -605,7 +519,7 @@ export default function DashboardPage() {
                 {data.recentOrders.length === 0 ? (
                   <div className="p-8 text-center text-gray-400 text-sm">No active orders</div>
                 ) : (
-                  <div className="divide-y divide-gray-100">
+                  <div className="overflow-y-auto divide-y divide-gray-100" style={{ maxHeight: '20rem' }}>
                     {data.recentOrders.map((order) => (
                       <div key={order.id} className="px-5 py-3 flex items-center justify-between">
                         <div>
@@ -713,21 +627,53 @@ function KanbanColumn({ title, count, headerClass, emptyText, children }: {
 }) {
   return (
     <div className="flex flex-col rounded-xl border border-gray-200 overflow-hidden bg-white">
-      <div className={`px-4 py-3 border-b flex items-center justify-between ${headerClass}`}>
+      <div className={`px-4 py-3 border-b flex items-center justify-between flex-shrink-0 ${headerClass}`}>
         <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">{title}</span>
         <span className="text-xs font-bold text-gray-400 bg-white rounded-full px-2 py-0.5 border border-gray-200">{count}</span>
       </div>
-      <div className="flex-1 p-3 space-y-2.5 min-h-[120px]">
-        {count === 0 && <p className="text-xs text-center text-gray-300 pt-8">{emptyText}</p>}
-        {children}
+      <div className="overflow-y-auto" style={{ maxHeight: '22rem', minHeight: '7rem' }}>
+        {count === 0
+          ? <p className="text-xs text-center text-gray-300 py-10">{emptyText}</p>
+          : <div className="p-2 space-y-0.5">{children}</div>
+        }
       </div>
     </div>
   );
 }
 
-function TaskCard({ task, onMove, moveLabel, onDelete, moveClass = 'bg-gray-100 text-gray-700 hover:bg-gray-200', dim = false }: {
-  task: KanbanTask; onMove: () => void; moveLabel: string; onDelete: () => void; moveClass?: string; dim?: boolean;
+function TaskRow({ task, onClick, dim = false }: { task: KanbanTask; onClick: () => void; dim?: boolean }) {
+  const dueDate = task.deadline ? new Date(task.deadline) : null;
+  const isOverdue = dueDate && dueDate < new Date() && task.status !== 'DONE';
+  const dueDateStr = dueDate ? dueDate.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) : null;
+  const createdStr = new Date(task.createdAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
+
+  return (
+    <button onClick={onClick}
+      className={`w-full flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 rounded-lg transition text-left ${dim ? 'opacity-60' : ''}`}>
+      <div className="mt-0.5 flex-shrink-0">{CATEGORY_ICONS[task.category || 'general']}</div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium leading-snug truncate ${dim ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.label}</p>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0 mt-0.5 text-[11px] text-gray-400">
+          <span>Created {createdStr}</span>
+          {dueDateStr && (
+            <span className={`flex items-center gap-0.5 ${isOverdue ? 'text-red-500 font-semibold' : ''}`}>
+              <Clock size={9} />{isOverdue ? 'Overdue · ' : 'Due '}{dueDateStr}
+            </span>
+          )}
+        </div>
+      </div>
+      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 ${PRIORITY_STYLES[task.priority] || PRIORITY_STYLES.MEDIUM}`}>
+        {task.priority}
+      </span>
+    </button>
+  );
+}
+
+function TaskDetailModal({ task, onClose, onMove, onDelete, moveLabel }: {
+  task: KanbanTask; onClose: () => void; onMove: () => void; onDelete: () => void; moveLabel: string;
 }) {
+  const dueDate = task.deadline ? new Date(task.deadline) : null;
+  const isOverdue = dueDate && dueDate < new Date() && task.status !== 'DONE';
   const waUrl = task.assignedPhone
     ? (() => {
         const num = task.assignedPhone.replace(/\D/g, '').replace(/^0/, '254');
@@ -736,43 +682,73 @@ function TaskCard({ task, onMove, moveLabel, onDelete, moveClass = 'bg-gray-100 
       })()
     : null;
 
-  const deadlineStr = task.deadline ? new Date(task.deadline).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) : null;
-  const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'DONE';
-
   return (
-    <div className={`rounded-lg border border-gray-100 bg-white p-3 shadow-sm group ${dim ? 'opacity-60' : ''}`}>
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {CATEGORY_ICONS[task.category || 'general']}
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${PRIORITY_STYLES[task.priority] || PRIORITY_STYLES.MEDIUM}`}>
-            {task.priority}
-          </span>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between p-5 border-b border-gray-100">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {CATEGORY_ICONS[task.category || 'general']}
+            <h3 className="font-bold text-gray-900 leading-snug">{task.label}</h3>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0"><X size={18} /></button>
         </div>
-        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition flex-shrink-0">
-          <Trash2 size={12} />
-        </button>
-      </div>
-      <p className={`text-sm font-semibold text-gray-900 leading-snug mb-1 ${dim ? 'line-through text-gray-500' : ''}`}>{task.label}</p>
-      {task.detail && <p className="text-xs text-gray-400 mb-2 leading-relaxed">{task.detail}</p>}
-      <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-gray-400">
-        {deadlineStr && (
-          <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-500 font-medium' : ''}`}>
-            <Clock size={10} /> {isOverdue ? 'Overdue · ' : ''}{deadlineStr}
-          </span>
-        )}
-        {task.duration && <span>{task.duration}</span>}
-        {task.assignedPhone && <span className="flex items-center gap-0.5"><Phone size={10} /> {task.assignedPhone}</span>}
-      </div>
-      <div className="flex gap-1.5 mt-3">
-        <button onClick={onMove} className={`flex-1 text-[11px] font-bold py-1.5 rounded-md transition ${moveClass}`}>
-          {moveLabel}
-        </button>
-        {waUrl && (
-          <a href={waUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2 py-1.5 rounded-md bg-green-50 text-green-700 hover:bg-green-100 transition text-[11px] font-medium">
-            <MessageSquare size={11} /> WA
-          </a>
-        )}
+        <div className="p-5 space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${PRIORITY_STYLES[task.priority] || PRIORITY_STYLES.MEDIUM}`}>{task.priority} priority</span>
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 capitalize">{task.category || 'general'}</span>
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+              task.status === 'DONE' ? 'bg-green-100 text-green-700' :
+              task.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
+              'bg-gray-100 text-gray-600'}`}>
+              {task.status.replace('_', ' ')}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">Date created</p>
+              <p className="text-gray-700">{new Date(task.createdAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">Due date</p>
+              {dueDate
+                ? <p className={isOverdue ? 'text-red-600 font-semibold' : 'text-gray-700'}>{isOverdue ? '⚠ Overdue · ' : ''}{dueDate.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                : <p className="text-gray-400 italic">No deadline</p>}
+            </div>
+            {task.duration && (
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">Estimated time</p>
+                <p className="text-gray-700">{task.duration}</p>
+              </div>
+            )}
+            {task.assignedPhone && (
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">Assigned to</p>
+                <p className="text-gray-700 flex items-center gap-1"><Phone size={11} /> {task.assignedPhone}</p>
+              </div>
+            )}
+          </div>
+          {task.detail && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Notes</p>
+              <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 leading-relaxed whitespace-pre-wrap">{task.detail}</p>
+            </div>
+          )}
+        </div>
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onMove} className="flex-1 py-2.5 text-sm font-bold bg-green-700 text-white rounded-xl hover:bg-green-800 transition">
+            {moveLabel}
+          </button>
+          {waUrl && (
+            <a href={waUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 transition text-sm font-medium">
+              <MessageSquare size={14} /> WA
+            </a>
+          )}
+          <button onClick={onDelete}
+            className="flex items-center gap-1 px-4 py-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition text-sm">
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
     </div>
   );

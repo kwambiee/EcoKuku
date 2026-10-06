@@ -235,6 +235,49 @@ export async function GET(_request: NextRequest) {
       return { batchId: batch.id, batchNumber: batch.batchNumber, batchType: batch.type, ageInDays, items };
     }).filter((b) => b.items.length > 0);
 
+    // ── Auto-create vaccination purchase reminder tasks (7 / 3 / 1 day windows) ─
+    const todayStr = now.toISOString().slice(0, 10);
+    try {
+      for (const batch of activeBatches) {
+        const ageInDays = Math.floor((Date.now() - new Date(batch.startDate).getTime()) / 86400000);
+        const batchVacs = vaccinations.filter((v) => v.batchId === batch.id);
+        for (const sched of VACCINE_SCHEDULE) {
+          const isLogged = batchVacs.some((v) => isVaccineLogged(sched.vaccine, v.vaccineType));
+          if (isLogged) continue;
+          const daysUntilDue = sched.daysOld - ageInDays;
+          const windows = [
+            { key: '7d', inWindow: daysUntilDue >= 5 && daysUntilDue <= 9, priority: 'MEDIUM' },
+            { key: '3d', inWindow: daysUntilDue >= 1 && daysUntilDue <= 4, priority: 'HIGH' },
+            { key: '1d', inWindow: daysUntilDue <= 0 && daysUntilDue >= -3, priority: 'HIGH' },
+          ];
+          for (const w of windows) {
+            if (!w.inWindow) continue;
+            const taskKey = `vacc:${batch.id}:${sched.vaccine.replace(/[^a-zA-Z0-9]/g, '_')}:${w.key}`;
+            const existing = await (db as any).dailyTask.findFirst({ where: { link: taskKey } });
+            if (existing) continue;
+            const dueLabel = daysUntilDue > 0 ? `in ${daysUntilDue} day${daysUntilDue !== 1 ? 's' : ''}`
+              : daysUntilDue === 0 ? 'TODAY' : 'OVERDUE';
+            const vaccineDeadline = new Date(now.getTime() + Math.max(0, daysUntilDue) * 86400000);
+            await (db as any).dailyTask.create({
+              data: {
+                taskDate: todayStr,
+                label: `Buy ${sched.vaccine} vaccine`,
+                detail: `For ${batch.batchNumber} (${batch.type}) · needed ${dueLabel} · administer on day ${sched.daysOld}. Source before admin date.`,
+                category: 'vaccination',
+                priority: w.priority,
+                status: 'OPEN',
+                link: taskKey,
+                deadline: vaccineDeadline,
+                createdBy: 'system',
+              },
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Auto-vaccination task creation error:', e);
+    }
+
     // ── Alerts — expenditure-focused only ──────────────────────────────────────
     const alerts: { type: 'red' | 'amber' | 'blue'; title: string; detail: string; link?: string }[] = [];
 
