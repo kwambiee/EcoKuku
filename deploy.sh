@@ -1,22 +1,31 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────
-# Kwamboka Poultry Farm — Deploy Script
+# Kwamboka Poultry Farm — Deploy Script (server-side build)
 # Usage:
 #   bash deploy.sh            → deploy both apps
 #   bash deploy.sh admin      → deploy admin only
 #   bash deploy.sh web        → deploy web only
+#
+# Server address comes from DEPLOY_HOST (env var) or a gitignored
+# .deploy.env file containing:  DEPLOY_HOST=deploy@<server-ip>
+# Secrets live in the server's .env.local files — none are in this script.
 # ─────────────────────────────────────────────────────────────
 set -e
 
-SERVER="root@167.172.110.41"
+[[ -f .deploy.env ]] && source .deploy.env
+SERVER="${DEPLOY_HOST:?Set DEPLOY_HOST (e.g. in .deploy.env: DEPLOY_HOST=deploy@1.2.3.4)}"
 REMOTE_ROOT="/var/www/ecokuku"
-DB_URL="postgresql://ecokuku:HsjS9l6%40LigWfHap@localhost:5432/ecokuku_prod"
 TARGET="${1:-both}"
 
 GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; RESET='\033[0m'
 step() { echo -e "\n${CYAN}▶  $1${RESET}"; }
 ok()   { echo -e "${GREEN}✅  $1${RESET}"; }
 warn() { echo -e "${YELLOW}⚠️   $1${RESET}"; }
+
+case "$TARGET" in
+  admin|web|both) ;;
+  *) echo "Unknown target '$TARGET' (use: admin | web | both)"; exit 1 ;;
+esac
 
 echo -e "\n══════════════════════════════════════════════════"
 echo -e "  Kwamboka Poultry Farm — Deploy  [target: ${TARGET}]"
@@ -28,9 +37,7 @@ if [[ -n $(git status --porcelain) ]]; then
   read -p "  Commit message (Enter for 'deploy $(date +%Y-%m-%d)'): " MSG
   MSG="${MSG:-deploy $(date +%Y-%m-%d)}"
   git add -A
-  git commit -m "$MSG
-
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+  git commit -m "$MSG"
   git push origin main
   ok "Pushed to main"
 else
@@ -38,27 +45,20 @@ else
   git push origin main 2>/dev/null || true
 fi
 
-# ── 2. Build locally ──────────────────────────────────────────
-step "Step 2 · Build"
+# ── 2. Server: pull → install → prisma → build → restart ─────
+step "Step 2 · Server: pull, install, prisma, build, restart"
+
+BUILD_CMDS=""
+PM2_APPS=""
 if [[ "$TARGET" == "admin" || "$TARGET" == "both" ]]; then
-  echo "  Building admin..."
-  npm run build --workspace=apps/admin
-  ok "Admin built"
+  BUILD_CMDS="${BUILD_CMDS}echo '  → Building admin...' && npm run build --workspace=apps/admin && "
+  PM2_APPS="${PM2_APPS} ecokuku-admin"
 fi
 if [[ "$TARGET" == "web" || "$TARGET" == "both" ]]; then
-  echo "  Building web..."
-  npm run build --workspace=apps/web
-  ok "Web built"
+  BUILD_CMDS="${BUILD_CMDS}echo '  → Building web...' && npm run build --workspace=apps/web && "
+  PM2_APPS="${PM2_APPS} ecokuku-web"
 fi
-
-# ── 3+4. Server prep — one SSH session does it all ───────────
-step "Steps 3–4 · Server: pull code → prisma → clear old builds"
-
-# Build the rm commands for only the apps being deployed
-RM_CMDS=""
-[[ "$TARGET" == "admin" || "$TARGET" == "both" ]] && RM_CMDS="${RM_CMDS}rm -rf ${REMOTE_ROOT}/apps/admin/.next && "
-[[ "$TARGET" == "web"   || "$TARGET" == "both" ]] && RM_CMDS="${RM_CMDS}rm -rf ${REMOTE_ROOT}/apps/web/.next && "
-RM_CMDS="${RM_CMDS}echo 'Old builds cleared'"
+BUILD_CMDS="${BUILD_CMDS}true"
 
 ssh ${SERVER} "
   set -e
@@ -71,44 +71,22 @@ ssh ${SERVER} "
   echo '  → Pulling latest code...'
   git pull origin main
 
-  echo '  → Running prisma db push...'
-  export DATABASE_URL='${DB_URL}'
-  ./node_modules/.bin/prisma db push \
-    --schema=packages/db/prisma/schema.prisma \
-    --accept-data-loss 2>&1 | tail -3
+  echo '  → Installing dependencies...'
+  npm install --no-audit --no-fund
 
-  echo '  → Clearing old build files...'
-  ${RM_CMDS}
+  echo '  → Prisma generate + db push...'
+  # DATABASE_URL is read from packages/db/.env. No --accept-data-loss:
+  # if a schema change would drop data, this stops and tells you.
+  ./node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
+  ./node_modules/.bin/prisma db push --schema=packages/db/prisma/schema.prisma
+
+  ${BUILD_CMDS}
+
+  echo '  → Restarting PM2...'
+  pm2 startOrRestart ecosystem.config.js --only '$(echo ${PM2_APPS} | tr ' ' ',')' || pm2 restart ${PM2_APPS}
+  pm2 save
 "
-ok "Server ready"
-
-# ── 5. Upload new builds ──────────────────────────────────────
-step "Step 5 · Upload new builds"
-if [[ "$TARGET" == "admin" || "$TARGET" == "both" ]]; then
-  echo "  Uploading admin .next..."
-  rsync -az --delete apps/admin/.next/ ${SERVER}:${REMOTE_ROOT}/apps/admin/.next/
-  ok "Admin build uploaded"
-fi
-if [[ "$TARGET" == "web" || "$TARGET" == "both" ]]; then
-  echo "  Uploading web .next..."
-  rsync -az --delete apps/web/.next/ ${SERVER}:${REMOTE_ROOT}/apps/web/.next/
-  ok "Web build uploaded"
-fi
-
-# Always sync admin public/ so local uploads stay available as fallback
-rsync -az apps/admin/public/ ${SERVER}:${REMOTE_ROOT}/apps/admin/public/
-
-# ── 6. Restart PM2 — one SSH session ─────────────────────────
-step "Step 6 · Restart PM2"
-
-PM2_CMD=""
-if   [[ "$TARGET" == "admin" ]]; then PM2_CMD="pm2 restart ecokuku-admin"
-elif [[ "$TARGET" == "web"   ]]; then PM2_CMD="pm2 restart ecokuku-web"
-else                                  PM2_CMD="pm2 restart ecokuku-admin ecokuku-web"
-fi
-
-ssh ${SERVER} "${PM2_CMD} && pm2 save"
-ok "PM2 restarted"
+ok "Deployed"
 
 # ── Done ──────────────────────────────────────────────────────
 echo ""
