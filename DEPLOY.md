@@ -68,7 +68,9 @@ bash deploy.sh          # both apps
 bash deploy.sh admin    # admin only
 bash deploy.sh web      # web only
 ```
-It commits and pushes, then on the server: pulls, installs, runs `prisma generate` + `prisma db push`, builds, and restarts PM2.
+It commits and pushes, then on the server: pulls, installs, loads `DATABASE_URL` from `packages/db/.env`, runs `prisma generate` + `prisma db push`, builds, and restarts PM2.
+
+When running Prisma by hand on the server, load the URL first: `set -a; . packages/db/.env; set +a` (Prisma will not find `packages/db/.env` on its own).
 
 `prisma db push` no longer uses `--accept-data-loss`. If a schema change would delete data, the deploy stops with a message — review it and run the push by hand if you really mean it.
 

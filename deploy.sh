@@ -75,8 +75,9 @@ ssh ${SERVER} "
   npm install --no-audit --no-fund
 
   echo '  → Prisma generate + db push...'
-  # DATABASE_URL is read from packages/db/.env. No --accept-data-loss:
-  # if a schema change would drop data, this stops and tells you.
+  # Prisma only auto-loads .env beside the schema, so export it from packages/db/.env.
+  # No --accept-data-loss: if a schema change would drop data, this stops and tells you.
+  set -a; . packages/db/.env; set +a
   ./node_modules/.bin/prisma generate --schema=packages/db/prisma/schema.prisma
   ./node_modules/.bin/prisma db push --schema=packages/db/prisma/schema.prisma
 
